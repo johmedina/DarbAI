@@ -15,14 +15,14 @@ interface ChatInputProps {
 
 const suggestedActions = [
     {
-        title: 'How is the weather',
-        label: 'in Vienna?',
-        action: 'How is the weather in Vienna today?',
+        title: 'What is the legal',
+        label: 'driving age in Qatar?',
+        action: 'What is the legal driving age in Qatar?',
     },
     {
-        title: 'Tell me a fun fact',
-        label: 'about pandas',
-        action: 'Tell me an interesting fact about pandas',
+        title: 'What are the different types',
+        label: 'of driving licenses in Qatar?',
+        action: 'What are the different types of driving licenses in Qatar?',
     },
 ];
 
@@ -91,7 +91,7 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading }: ChatIn
         />
 
         <Button 
-            className="rounded-full p-1.5 h-fit absolute bottom-2 right-2 m-0.5 border dark:border-zinc-600"
+            className="rounded-full p-1.5 h-fit absolute bottom-2 right-2 m-0.5 border dark:border-600"
             onClick={() => onSubmit(question)}
             disabled={question.length === 0}
         >

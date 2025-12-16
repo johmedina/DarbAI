@@ -1,19 +1,22 @@
 import { Button } from "@/components/ui/button"
 import { Copy, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
 import { useState } from "react"
-import { message } from "../../interfaces/interfaces"
+import { ChatMessageModel } from "../../interfaces/interfaces"
+import { OverlayTrigger, Tooltip } from 'react-bootstrap'
+
 
 interface MessageActionsProps {
-  message: message
+  message: ChatMessageModel
+  setShowUQModal: (show: boolean) => void
 }
 
-export function MessageActions({ message }: MessageActionsProps) {
+export function MessageActions({ message, setShowUQModal }: MessageActionsProps) {
   const [copied, setCopied] = useState(false)
   const [liked, setLiked] = useState(false)
   const [disliked, setDisliked] = useState(false)
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(message.content)
+    navigator.clipboard.writeText(message.response ? message.response : message.message)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -49,6 +52,22 @@ export function MessageActions({ message }: MessageActionsProps) {
       <Button variant="ghost" size="icon" onClick={handleDislike}>
         <ThumbsDown className={disliked ? "text-black dark:text-white" : "text-gray-500"} size={16} />
       </Button>
+      <OverlayTrigger
+          placement="top"
+          overlay={
+            <Tooltip>
+              Uncertainty Quantification
+            </Tooltip>
+          }
+        >
+          <span
+            className="cursor-pointer ms-2 me-4 text-hover-dark py-1 text-gray-500"
+            style={{ fontSize: '1rem' }}
+            onClick={() => setShowUQModal(true)}
+          >
+            UQ
+          </span>
+        </OverlayTrigger>
     </div>
   )
 }

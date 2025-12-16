@@ -13,15 +13,10 @@ export const Overview = () => {
       transition={{ delay: 0.75 }}
     >
       <div className="rounded-xl p-6 flex flex-col gap-8 leading-relaxed text-center max-w-xl">
-        <p className="flex flex-row justify-center gap-4 items-center">
-          <BotIcon size={44}/>
-          <span>+</span>
-          <MessageCircle size={44}/>
-        </p>
-        <p>
-          Welcome to <strong>chatbot-ui</strong><br />
-          a open source template made by<br />
-          <strong>Leon Binder</strong> and <strong>Christoph Handschuh</strong>.
+        <img src="src/assets/images/logo.png" alt="Logo" className="h-auto w-auto" />
+        <p style={{marginTop: -100}}>
+          Welcome to <strong>DarbAI</strong><br />
+          Your AI companion for driving confidence in Qatar
         </p>
       </div>
     </motion.div>

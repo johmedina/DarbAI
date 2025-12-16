@@ -14,6 +14,13 @@ export default defineConfig({
     watch: {
       usePolling: false,
       interval: 1000
+    },
+    proxy: {
+      '/api': {
+        target: 'http://10.161.232.59:8002',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
     }
   },
   resolve: {
