@@ -1,16 +1,18 @@
 import { Textarea } from "../ui/textarea";
 import { cx } from 'classix';
 import { Button } from "../ui/button";
-import { ArrowUpIcon } from "./icons"
+import { ArrowUpIcon, PaperclipIcon, CrossIcon } from "./icons"
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 interface ChatInputProps {
     question: string;
     setQuestion: (question: string) => void;
     onSubmit: (text?: string) => void;
     isLoading: boolean;
+    image: File | null;
+    setImage: (image: File | null) => void;
 }
 
 const suggestedActions = [
@@ -26,11 +28,74 @@ const suggestedActions = [
     },
 ];
 
-export const ChatInput = ({ question, setQuestion, onSubmit, isLoading }: ChatInputProps) => {
+export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, setImage }: ChatInputProps) => {
     const [showSuggestions, setShowSuggestions] = useState(true);
+    const [isDragging, setIsDragging] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const dragCounterRef = useRef(0);
+    const previewUrl = image ? URL.createObjectURL(image) : null;
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (!file.type.startsWith('image/')) {
+                toast.error('Please select an image file.');
+                return;
+            }
+            setImage(file);
+        }
+        // Reset input so the same file can be re-selected
+        e.target.value = '';
+    };
+
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        dragCounterRef.current += 1;
+        if (e.dataTransfer.types.includes('Files')) {
+            setIsDragging(true);
+        }
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        dragCounterRef.current -= 1;
+        if (dragCounterRef.current === 0) {
+            setIsDragging(false);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        dragCounterRef.current = 0;
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            toast.error('Only image files are supported.');
+            return;
+        }
+        setImage(file);
+    };
+
+    const canSubmit = question.trim().length > 0 || image !== null;
 
     return(
-    <div className="relative w-full flex flex-col gap-4">
+    <div
+        className="relative w-full flex flex-col gap-4"
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+    >
+        {isDragging && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-muted/80 pointer-events-none">
+                <span className="text-sm font-medium text-primary">Drop image here</span>
+            </div>
+        )}
         {showSuggestions && (
             <div className="hidden md:grid sm:grid-cols-2 gap-2 w-full">
                 {suggestedActions.map((suggestedAction, index) => (
@@ -60,43 +125,79 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading }: ChatIn
                 ))}
             </div>
         )}
+
+        {/* Hidden file input */}
         <input
-        type="file"
-        className="fixed -top-4 -left-4 size-0.5 opacity-0 pointer-events-none"
-        multiple
-        tabIndex={-1}
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
         />
 
-        <Textarea
-        placeholder="Send a message..."
-        className={cx(
-            'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-xl text-base bg-muted',
+        {/* Image preview */}
+        {previewUrl && (
+            <div className="relative w-fit">
+                <img
+                    src={previewUrl}
+                    alt="Selected"
+                    className="h-24 w-auto rounded-lg object-cover border border-border"
+                />
+                <button
+                    type="button"
+                    onClick={() => setImage(null)}
+                    className="absolute -top-2 -right-2 rounded-full bg-background border border-border p-0.5 hover:bg-muted"
+                    aria-label="Remove image"
+                >
+                    <CrossIcon size={12} />
+                </button>
+            </div>
         )}
-        value={question}
-        onChange={(e) => setQuestion(e.target.value)}
-        onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
 
-                if (isLoading) {
-                    toast.error('Please wait for the model to finish its response!');
-                } else {
-                    setShowSuggestions(false);
-                    onSubmit();
+        <div className="relative">
+            <Textarea
+            placeholder="Send a message..."
+            className={cx(
+                'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-xl text-base bg-muted pr-20',
+            )}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+
+                    if (isLoading) {
+                        toast.error('Please wait for the model to finish its response!');
+                    } else {
+                        setShowSuggestions(false);
+                        onSubmit();
+                    }
                 }
-            }
-        }}
-        rows={3}
-        autoFocus
-        />
+            }}
+            rows={3}
+            autoFocus
+            />
 
-        <Button 
-            className="rounded-full p-1.5 h-fit absolute bottom-2 right-2 m-0.5 border dark:border-600"
-            onClick={() => onSubmit(question)}
-            disabled={question.length === 0}
-        >
-            <ArrowUpIcon size={14} />
-        </Button>
+            {/* Image upload button */}
+            <Button
+                type="button"
+                variant="ghost"
+                className="rounded-full p-1.5 h-fit absolute bottom-2 right-10 m-0.5"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+                aria-label="Attach image"
+            >
+                <PaperclipIcon size={14} />
+            </Button>
+
+            <Button
+                className="rounded-full p-1.5 h-fit absolute bottom-2 right-2 m-0.5 border dark:border-600"
+                onClick={() => onSubmit(question)}
+                disabled={!canSubmit}
+            >
+                <ArrowUpIcon size={14} />
+            </Button>
+        </div>
     </div>
     );
 }

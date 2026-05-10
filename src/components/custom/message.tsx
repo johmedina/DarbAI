@@ -30,6 +30,16 @@ export const PreviewMessage = ({ message }: { message: ChatMessageModel; }) => {
 
         <div className="flex flex-col w-full">
           <div className="flex flex-col gap-4 text-left">
+            {message.chat_uploaded_files?.map((f, i) =>
+              f.objectUrl ? (
+                <img
+                  key={i}
+                  src={f.objectUrl}
+                  alt="Uploaded"
+                  className="max-h-64 w-auto rounded-lg object-contain"
+                />
+              ) : null
+            )}
             <Markdown>{message.message}</Markdown>
           </div>
 

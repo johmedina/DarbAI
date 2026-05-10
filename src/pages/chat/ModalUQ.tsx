@@ -19,7 +19,7 @@ type TokenStat = {
   collision_entropy: number;
 };
 
-const RELIABILITY_THRESHOLD = -0.1;
+const RELIABILITY_THRESHOLD = -0.09;
 const CE_THRESHOLD = 2;
 const getReliabilityColor = (r: number, threshold: number = RELIABILITY_THRESHOLD): "red" | "green" | "black" => {
   if (r < threshold) return "red";

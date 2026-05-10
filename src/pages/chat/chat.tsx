@@ -14,6 +14,7 @@ export function Chat() {
   const [messages, setMessages] = useState<ChatMessageModel[]>([]);
   const [question, setQuestion] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [image, setImage] = useState<File | null>(null);
 
   useEffect(() => {
     console.log(messages);
@@ -33,10 +34,13 @@ export function Chat() {
     if (isLoading) return;
 
     const messageText = text || question;
-    if (!messageText.trim()) return;
+    if (!messageText.trim() && !image) return;
 
     setIsLoading(true);
     const traceId = uuidv4();
+
+    // Capture object URL for display before clearing image state
+    const imageObjectUrl = image ? URL.createObjectURL(image) : undefined;
 
     // Optimistically add the user message to the UI
     setMessages(prev => [
@@ -45,26 +49,46 @@ export function Chat() {
         message: messageText,
         role: ChatMessageRoleType.USER,
         chat_id: traceId,
-        generation_type: ChatMessageGenerationType.TEXT,
+        generation_type: image
+          ? ChatMessageGenerationType.IMAGE_UNDERSTANDING
+          : ChatMessageGenerationType.TEXT,
+        ...(imageObjectUrl ? { chat_uploaded_files: [{ objectUrl: imageObjectUrl }] } : {}),
       }
     ]);
     setQuestion("");
+    setImage(null);
 
     try {
       const context = buildContextFromMessages(messages);
 
-      const response = await fetch(API_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          question: messageText,
-          use_rag: true,
-          context,
-          chat_id: traceId,
-        }),
-      });
+      let response: Response;
+
+      if (image) {
+        const formData = new FormData();
+        formData.append('question', messageText);
+        formData.append('use_rag', 'true');
+        formData.append('chat_id', traceId);
+        formData.append('context', JSON.stringify(context));
+        formData.append('image', image);
+
+        response = await fetch(API_ENDPOINT, {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        response = await fetch(API_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            question: messageText,
+            use_rag: true,
+            context,
+            chat_id: traceId,
+          }),
+        });
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -113,6 +137,8 @@ export function Chat() {
           setQuestion={setQuestion}
           onSubmit={handleSubmit}
           isLoading={isLoading}
+          image={image}
+          setImage={setImage}
         />
       </div>
     </div>
