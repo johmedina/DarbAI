@@ -8,6 +8,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import logo from "@/assets/images/logo.png";
+import { ThemeToggle } from "@/components/custom/theme-toggle";
 
 export function SignupPage() {
   const { signup, isAuthenticated } = useAuth();
@@ -52,11 +54,15 @@ export function SignupPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-sm">
 
         <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
 
-          <div className="mb-6 text-center">
+          <div className="mb-6 flex flex-col items-center text-center">
+            <img src={logo} alt="Salama" className="h-16 w-auto mb-4" />
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Create an account
             </h1>

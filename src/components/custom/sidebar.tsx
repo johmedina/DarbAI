@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusIcon, TrashIcon, MessageSquareIcon, ChevronLeftIcon } from 'lucide-react';
+import { PlusIcon, MessageSquareIcon, ChevronLeftIcon } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
@@ -8,6 +8,7 @@ export interface HistoryMessage {
   question: string;
   response: string;
   timestamp: string;
+  image_url?: string | null;          // full backend URL e.g. /images/user/chat/file.jpg
   total_reliability?: number;
   total_entropy?: number;
   total_collision_entropy?: number;
@@ -40,72 +41,49 @@ function formatRelativeTime(isoTimestamp: string): string {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 }
 
 function groupChatsByTime(chats: ChatSession[]): { label: string; chats: ChatSession[] }[] {
   const now = new Date();
-  const today: ChatSession[] = [];
-  const yesterday: ChatSession[] = [];
-  const last7Days: ChatSession[] = [];
-  const older: ChatSession[] = [];
-
+  const today: ChatSession[] = [], yesterday: ChatSession[] = [];
+  const last7Days: ChatSession[] = [], older: ChatSession[] = [];
   for (const chat of chats) {
-    const date = new Date(chat.last_updated);
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
+    const diffDays = Math.floor((now.getTime() - new Date(chat.last_updated).getTime()) / 86400000);
     if (diffDays < 1) today.push(chat);
     else if (diffDays < 2) yesterday.push(chat);
     else if (diffDays < 7) last7Days.push(chat);
     else older.push(chat);
   }
-
   const groups = [];
-  if (today.length) groups.push({ label: 'Today', chats: today });
-  if (yesterday.length) groups.push({ label: 'Yesterday', chats: yesterday });
+  if (today.length)    groups.push({ label: 'Today',            chats: today });
+  if (yesterday.length) groups.push({ label: 'Yesterday',       chats: yesterday });
   if (last7Days.length) groups.push({ label: 'Previous 7 days', chats: last7Days });
-  if (older.length) groups.push({ label: 'Older', chats: older });
+  if (older.length)    groups.push({ label: 'Older',            chats: older });
   return groups;
 }
 
 export function Sidebar({
-  isOpen,
-  onClose,
-  chats,
-  selectedChatId,
-  onSelectChat,
-  onNewChat,
-  isLoading = false,
+  isOpen, onClose, chats, selectedChatId, onSelectChat, onNewChat, isLoading = false,
 }: SidebarProps) {
   const groups = groupChatsByTime(chats);
 
   return (
     <>
-      {/* Overlay for mobile */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40 md:hidden"
-          onClick={onClose}
-          aria-hidden="true"
-        />
+        <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={onClose} aria-hidden="true" />
       )}
-
-      <aside
-        className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col w-64 bg-background border-r border-border',
-          'transition-transform duration-200 ease-in-out',
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-      >
-        {/* Header */}
+      <aside className={cn(
+        'fixed inset-y-0 left-0 z-50 flex flex-col w-64 bg-background border-r border-border',
+        'transition-transform duration-200 ease-in-out',
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      )}>
         <div className="flex items-center justify-between px-3 pt-4 pb-2 shrink-0">
           <span className="text-sm font-semibold text-muted-foreground tracking-wide uppercase select-none">
             Chats
@@ -115,28 +93,18 @@ export function Sidebar({
           </Button>
         </div>
 
-        {/* New chat button */}
         <div className="px-3 pb-2 shrink-0">
-          <Button
-            variant="outline"
-            className="w-full justify-start gap-2 text-sm"
-            onClick={onNewChat}
-          >
+          <Button variant="outline" className="w-full justify-start gap-2 text-sm" onClick={onNewChat}>
             <PlusIcon className="h-4 w-4" />
             New chat
           </Button>
         </div>
 
-        {/* Chat list */}
         <ScrollArea className="flex-1 px-2">
           {isLoading ? (
             <div className="flex flex-col gap-2 mt-2">
               {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-10 rounded-lg bg-muted animate-pulse"
-                  style={{ opacity: 1 - i * 0.15 }}
-                />
+                <div key={i} className="h-10 rounded-lg bg-muted animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
               ))}
             </div>
           ) : chats.length === 0 ? (
@@ -171,15 +139,10 @@ export function Sidebar({
   );
 }
 
-function ChatRow({
-  chat,
-  isSelected,
-  onSelect,
-}: {
-  chat: ChatSession;
-  isSelected: boolean;
-  onSelect: () => void;
+function ChatRow({ chat, isSelected, onSelect }: {
+  chat: ChatSession; isSelected: boolean; onSelect: () => void;
 }) {
+  const hasImages = chat.messages.some((m) => m.image_url);
   return (
     <button
       type="button"
@@ -198,8 +161,9 @@ function ChatRow({
           {chat.title || 'Untitled chat'}
         </p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {formatRelativeTime(chat.last_updated)} · {chat.messages.length}{' '}
-          {chat.messages.length === 1 ? 'message' : 'messages'}
+          {formatRelativeTime(chat.last_updated)}
+          {' · '}{chat.messages.length} {chat.messages.length === 1 ? 'message' : 'messages'}
+          {hasImages && ' · 🖼'}
         </p>
       </div>
     </button>
