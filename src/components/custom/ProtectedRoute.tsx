@@ -1,26 +1,22 @@
 /**
  * ProtectedRoute.tsx
  * src/components/custom/ProtectedRoute.tsx
- *
- * Wrap any route element with this to require authentication.
- * While the token is being verified on mount it shows a spinner
- * instead of flashing the login page for users who ARE logged in.
  */
 
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import logo from "@/assets/images/logo.png";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Still verifying the stored token — show a neutral loading screen
   if (isLoading) {
+    // Show logo + spinner while token is being verified so the logo
+    // never disappears on reload — same visual as the app header
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        </div>
+      <div className="flex h-screen flex-col items-center justify-center gap-6 bg-background">
+        <img src={logo} alt="Salama" className="h-16 w-auto" />
+        <div className="h-7 w-7 animate-spin rounded-full border-4 border-muted border-t-primary" />
       </div>
     );
   }

@@ -1,12 +1,16 @@
 /**
  * chat.tsx
  * src/pages/chat/chat.tsx
+ *
+ * Single component instance handles both "/" and "/chat/:chatId" via layout route.
+ * This means chatSessions, sidebar state, and Header are never remounted.
  */
 
 import { ChatInput } from "@/components/custom/chatinput";
 import { PreviewMessage, ThinkingMessage } from "../../components/custom/message";
 import { useScrollToBottom } from "@/components/custom/use-scroll-to-bottom";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ChatMessageGenerationType,
   ChatMessageModel,
@@ -21,15 +25,12 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { apiClient, API_BASE } from "@/lib/apiClient";
 
-// ── Helper — build a full authenticated image src URL ─────────────────────────
-// The backend serves images at /images/<path> and requires JWT.
-// We can't put a Bearer token in an <img src> tag, so we fetch the image as a
-// blob and create a local object URL instead.  These are cached per session in
-// a module-level map so we don't re-fetch the same image.
+// ── Authenticated image loader ─────────────────────────────────────────────────
 const _blobCache = new Map<string, string>();
 
+//converts protected image URLs into usable blob URLs that can be displayed in a web page
 async function toAuthenticatedBlobUrl(imagePath: string, token: string): Promise<string> {
-  if (_blobCache.has(imagePath)) return _blobCache.get(imagePath)!;
+  if (_blobCache.has(imagePath)) return _blobCache.get(imagePath)!; // performance optimization, doesnt fetch the same image twice
   const res = await fetch(`${API_BASE}${imagePath}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -40,8 +41,7 @@ async function toAuthenticatedBlobUrl(imagePath: string, token: string): Promise
   return url;
 }
 
-// ── Convert a stored ChatSession → ChatMessageModel[] ─────────────────────────
-// imageUrlMap maps backend /images/... path → local blob URL
+// ── Session → ChatMessageModel[] ──────────────────────────────────────────────
 function sessionToMessages(
   session: ChatSession,
   imageUrlMap: Record<string, string> = {}
@@ -66,29 +66,54 @@ function sessionToMessages(
         total_reliability: m.total_reliability,
         total_entropy: m.total_entropy,
         total_collision_entropy: m.total_collision_entropy,
+        generation_time_seconds: m.generation_time_seconds,
       } as ChatMessageModel,
     ];
   });
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
+// ── Component ──────────────────────────────────────────────────────────────────
 export function Chat() {
   const { token, user, logout } = useAuth();
+  const navigate = useNavigate();
+  const { chatId: urlChatId } = useParams<{ chatId?: string }>();
   const [messagesContainerRef, messagesEndRef] = useScrollToBottom<HTMLDivElement>();
 
+  // Sidebar — persists across route changes because Chat never remounts
   const [sidebarOpen, setSidebarOpen]       = useState(false);
   const [chatSessions, setChatSessions]     = useState<ChatSession[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
-  const [messages, setMessages]             = useState<ChatMessageModel[]>([]);
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-
+  // Current conversation
+  const [messages, setMessages]   = useState<ChatMessageModel[]>([]);
   const [question, setQuestion]   = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [image, setImage]         = useState<File | null>(null);
 
-  // ── Resolve all image_url values in a session to local blob URLs ───────────
+  // Tracks which chatId is currently loaded in messages[]
+  // Prevents double-fetching and the image-upload 404 race condition
+  const loadedChatIdRef = useRef<string | null>(null);
+
+  // Live generation timer
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const selectedChatId = urlChatId ?? null;
+
+  // ── Timer ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isLoading) {
+      setElapsedSeconds(0);
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds((s) => +(s + 0.1).toFixed(1));
+      }, 100);
+    } else {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [isLoading]);
+
+  // ── Resolve image paths → blob URLs ──────────────────────────────────────
   const resolveSessionImages = useCallback(
     async (session: ChatSession): Promise<Record<string, string>> => {
       if (!token) return {};
@@ -104,57 +129,89 @@ export function Chat() {
     [token]
   );
 
-  // ── Load history ────────────────────────────────────────────────────────────
+  // ── Load sidebar history (runs once on mount / token change) ─────────────
   const loadHistory = useCallback(async () => {
     if (!token) return;
     setHistoryLoading(true);
     try {
       const data = await apiClient.get("/history", token);
-      if (data.success) {
-        setChatSessions(data.data as ChatSession[]);
-
-        const savedId = localStorage.getItem("selectedChatId");
-        if (savedId) {
-          const found = (data.data as ChatSession[]).find(
-            (c: ChatSession) => c.chat_id === savedId
-          );
-          if (found) {
-            setSelectedChatId(savedId);
-            const imageMap = await resolveSessionImages(found);
-            setMessages(sessionToMessages(found, imageMap));
-          }
-        }
-      }
+      if (data.success) setChatSessions(data.data as ChatSession[]);
     } catch (err) {
       console.error("Failed to load history:", err);
     } finally {
       setHistoryLoading(false);
     }
-  }, [token, resolveSessionImages]);
+  }, [token]);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
 
-  // ── New chat ────────────────────────────────────────────────────────────
+  // ── Load messages when URL chatId changes ─────────────────────────────────
+  useEffect(() => {
+    // No chatId in URL → new chat screen, clear messages
+    if (!urlChatId || !token) {
+      setMessages([]);
+      loadedChatIdRef.current = null;
+      return;
+    }
+
+    // Already loaded in state — skip fetch (prevents 404 race on new chats)
+    if (loadedChatIdRef.current === urlChatId) return;
+
+    (async () => {
+      try {
+        const data = await apiClient.get(`/chats/${urlChatId}`, token);
+        if (data.success) {
+          const session = data.data as ChatSession;
+          const imageMap = await resolveSessionImages(session);
+          setMessages(sessionToMessages(session, imageMap));
+          loadedChatIdRef.current = urlChatId;
+        }
+      } catch {
+        // 403/404 — this chat doesn't belong to this user.
+        // Clear messages and go to home WITHOUT remounting Chat.
+        setMessages([]);
+        loadedChatIdRef.current = null;
+        navigate("/", { replace: true });
+      }
+    })();
+  }, [urlChatId, token, navigate, resolveSessionImages]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   function handleNewChat() {
-    setSelectedChatId(null);
+    loadedChatIdRef.current = null;
     setMessages([]);
     setQuestion("");
     setImage(null);
-    localStorage.removeItem("selectedChatId");
     setSidebarOpen(false);
+    navigate("/");
   }
 
-  // ── Select chat from sidebar ────────────────────────────────────────────
-  async function handleSelectChat(session: ChatSession) {
-    setSelectedChatId(session.chat_id);
-    localStorage.setItem("selectedChatId", session.chat_id);
+  function handleSelectChat(session: ChatSession) {
     setSidebarOpen(false);
-    // Resolve any images in this session before rendering
-    const imageMap = await resolveSessionImages(session);
-    setMessages(sessionToMessages(session, imageMap));
+    loadedChatIdRef.current = null;
+    navigate(`/chat/${session.chat_id}`);
   }
 
-  // ── Send message ────────────────────────────────────────────────────────────
+  async function handleRenameChat(chatId: string, newTitle: string) {
+    if (!token) return;
+    await apiClient.patch(`/chats/${chatId}/rename`, { title: newTitle }, token);
+    setChatSessions((prev) =>
+      prev.map((c) => c.chat_id === chatId ? { ...c, title: newTitle } : c)
+    );
+  }
+
+  async function handleDeleteChat(chatId: string) {
+    if (!token) return;
+    await apiClient.delete(`/chats/${chatId}`, token);
+    setChatSessions((prev) => prev.filter((c) => c.chat_id !== chatId));
+    if (selectedChatId === chatId) {
+      loadedChatIdRef.current = null;
+      setMessages([]);
+      navigate("/");
+    }
+  }
+
+  // ── Send message ──────────────────────────────────────────────────────────
   async function handleSubmit(text?: string) {
     if (isLoading || !token) return;
     const messageText = text ?? question;
@@ -163,14 +220,14 @@ export function Chat() {
     setIsLoading(true);
 
     const chatId = selectedChatId ?? uuidv4();
+
     if (!selectedChatId) {
-      setSelectedChatId(chatId);
-      localStorage.setItem("selectedChatId", chatId);
+      // Pre-mark as loaded so the URL-change effect skips the GET
+      loadedChatIdRef.current = chatId;
+      navigate(`/chat/${chatId}`, { replace: true });
     }
 
-    // Create a temporary local object URL so the image shows instantly in the UI
     const localImageObjectUrl = image ? URL.createObjectURL(image) : undefined;
-
     const userMessage: ChatMessageModel = {
       message: messageText,
       role: ChatMessageRoleType.USER,
@@ -183,6 +240,7 @@ export function Chat() {
 
     setMessages((prev) => [...prev, userMessage]);
     setQuestion("");
+    const capturedImage = image;
     setImage(null);
 
     const contextForApi = [...messages, userMessage].map((msg) => ({
@@ -192,52 +250,52 @@ export function Chat() {
 
     try {
       let payload: any;
-
-      if (image) {
+      if (capturedImage) {
         const formData = new FormData();
         formData.append("question", messageText);
         formData.append("use_rag", "true");
-        formData.append("chat_id", chatId);
         formData.append("context", JSON.stringify(contextForApi));
-        formData.append("image", image);
-        payload = await apiClient.postForm("/generate_response", formData, token);
+        formData.append("image", capturedImage);
+        payload = await apiClient.postForm(`/chats/${chatId}/messages`, formData, token);
       } else {
         payload = await apiClient.post(
-          "/generate_response",
-          { question: messageText, use_rag: true, context: contextForApi, chat_id: chatId },
+          `/chats/${chatId}/messages`,
+          { question: messageText, use_rag: true, context: contextForApi },
           token
         );
       }
 
-      const assistantData = payload.data as ChatMessageModel & { image_url?: string };
+      const assistantData = payload.data as ChatMessageModel & {
+        image_url?: string;
+        generation_time_seconds?: number;
+      };
+
       setMessages((prev) => [...prev, assistantData]);
 
-      // If the backend saved an image, resolve it to a blob URL and cache it
-      // so it loads correctly if the user re-opens this chat from history.
-      let resolvedImageUrl: string | undefined;
+      // Swap local blob URL with the server-persisted one
       if (assistantData.image_url) {
-        resolvedImageUrl = await toAuthenticatedBlobUrl(assistantData.image_url, token);
-        // Patch the user message already in state to use the persistent blob URL
-        if (resolvedImageUrl) {
+        const resolvedUrl = await toAuthenticatedBlobUrl(assistantData.image_url, token);
+        if (resolvedUrl) {
           setMessages((prev) =>
             prev.map((msg) =>
               msg === userMessage
-                ? { ...msg, chat_uploaded_files: [{ objectUrl: resolvedImageUrl }] }
+                ? { ...msg, chat_uploaded_files: [{ objectUrl: resolvedUrl }] }
                 : msg
             )
           );
         }
       }
 
-      // Optimistically update sidebar
+      // Update sidebar optimistically
       setChatSessions((prev) => {
         const newMsg: HistoryMessage = {
-          question:          messageText,
-          response:          assistantData.message,
-          timestamp:         new Date().toISOString(),
-          image_url:         assistantData.image_url ?? null,
-          total_reliability: assistantData.total_reliability,
-          total_entropy:     assistantData.total_entropy,
+          question:                messageText,
+          response:                assistantData.message,
+          timestamp:               new Date().toISOString(),
+          image_url:               assistantData.image_url ?? null,
+          generation_time_seconds: assistantData.generation_time_seconds ?? null,
+          total_reliability:       assistantData.total_reliability,
+          total_entropy:           assistantData.total_entropy,
           total_collision_entropy: assistantData.total_collision_entropy,
         };
         const idx = prev.findIndex((c) => c.chat_id === chatId);
@@ -259,21 +317,18 @@ export function Chat() {
 
     } catch (err) {
       console.error("API error:", err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          message: "Sorry, there was an error processing your request. Please try again.",
-          role: ChatMessageRoleType.ASSISTANT,
-          chat_id: chatId,
-          generation_type: ChatMessageGenerationType.TEXT,
-        },
-      ]);
+      setMessages((prev) => [...prev, {
+        message: "Sorry, there was an error processing your request. Please try again.",
+        role: ChatMessageRoleType.ASSISTANT,
+        chat_id: chatId,
+        generation_type: ChatMessageGenerationType.TEXT,
+      }]);
     } finally {
       setIsLoading(false);
     }
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
       <Sidebar
@@ -283,10 +338,13 @@ export function Chat() {
         selectedChatId={selectedChatId}
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
+        onRenameChat={handleRenameChat}
+        onDeleteChat={handleDeleteChat}
         isLoading={historyLoading}
       />
 
       <div className="flex flex-col flex-1 min-w-0">
+        {/* Top bar — Header lives here, always mounted */}
         <div className="flex items-center gap-2 shrink-0 pr-3">
           <Button
             variant="ghost" size="icon"
@@ -296,29 +354,40 @@ export function Chat() {
           >
             <PanelLeftIcon className="h-5 w-5" />
           </Button>
-          <div className="flex-1"><Header /></div>
+          <div className="flex-1">
+            <Header />
+          </div>
           <div className="flex items-center gap-2 mt-1">
             {user && (
               <span className="text-xs text-muted-foreground hidden sm:block">
                 {user.username}
               </span>
             )}
-            <Button variant="ghost" size="icon" onClick={logout} aria-label="Log out" title="Log out">
+            <Button
+              variant="ghost" size="icon"
+              onClick={logout}
+              aria-label="Log out"
+              title="Log out"
+            >
               <LogOutIcon className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
+        {/* Messages */}
         <div
           className="flex-1 overflow-y-scroll flex flex-col gap-4 px-4 pt-4"
           ref={messagesContainerRef}
         >
           {messages.length === 0 && !isLoading && <Overview />}
-          {messages.map((msg, i) => <PreviewMessage key={i} message={msg} />)}
-          {isLoading && <ThinkingMessage />}
+          {messages.map((msg, i) => (
+            <PreviewMessage key={i} message={msg} />
+          ))}
+          {isLoading && <ThinkingMessage elapsedSeconds={elapsedSeconds} />}
           <div ref={messagesEndRef} className="shrink-0 min-h-[24px]" />
         </div>
 
+        {/* Input */}
         <div className="shrink-0 flex mx-auto px-4 pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
           <ChatInput
             question={question}

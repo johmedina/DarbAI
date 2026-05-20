@@ -18,7 +18,7 @@ import {
   useCallback,
   ReactNode,
 } from "react";
-import { apiClient } from "@/lib/apiClient.ts";
+import { apiClient } from "@/lib/apiClient";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
