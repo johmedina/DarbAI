@@ -67,4 +67,17 @@
   body {
     @apply bg-background text-foreground;
   }
+  button {
+    border-width: 0;
+    border-style: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    font: inherit;
+    color: inherit;
+    line-height: inherit;
+  }
+
 }

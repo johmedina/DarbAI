@@ -6,8 +6,8 @@ import { Markdown } from './markdown';
 import { ChatMessageModel, ChatMessageRoleType } from "../../interfaces/interfaces"
 import { MessageActions } from '@/components/custom/actions';
 import { ModalUQ } from '@/pages/chat/ModalUQ';
- 
-export const PreviewMessage = ({ message }: { message: ChatMessageModel; }) => {
+
+export const PreviewMessage = ({ message }: { message: ChatMessageModel }) => {
   const [showUQModal, setShowUQModal] = useState(false);
 
   return (
@@ -44,36 +44,46 @@ export const PreviewMessage = ({ message }: { message: ChatMessageModel; }) => {
           </div>
 
           {message.role === ChatMessageRoleType.ASSISTANT && (
-            <MessageActions message={message} setShowUQModal={setShowUQModal} />
+            <MessageActions
+              message={message}
+              setShowUQModal={setShowUQModal}
+            />
           )}
-        </div> 
+        </div>
       </div>
 
-      {showUQModal && <ModalUQ chatMessageResponse={message} show={showUQModal} handleClose={() => setShowUQModal(false)} />}
+      {showUQModal && (
+        <ModalUQ
+          chatMessageResponse={message}
+          show={showUQModal}
+          handleClose={() => setShowUQModal(false)}
+        />
+      )}
     </motion.div>
   );
 };
 
-export const ThinkingMessage = () => {
-  const role = 'assistant';
-
+// Live timer shown while response is generating
+export const ThinkingMessage = ({ elapsedSeconds = 0 }: { elapsedSeconds?: number }) => {
   return (
     <motion.div
-      className="w-full mx-auto max-w-3xl px-4 group/message "
+      className="w-full mx-auto max-w-3xl px-4 group/message"
       initial={{ y: 5, opacity: 0 }}
       animate={{ y: 0, opacity: 1, transition: { delay: 0.2 } }}
-      data-role={role}
+      data-role="assistant"
     >
-      <div
-        className={cx(
-          'flex gap-4 group-data-[role=user]/message:px-3 w-full group-data-[role=user]/message:w-fit group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:py-2 rounded-xl',
-          'group-data-[role=user]/message:bg-muted'
-        )}
-      >
+      <div className="flex gap-4 rounded-xl">
         <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border">
           <SparklesIcon size={14} />
         </div>
-        <div>Generating response...</div>
+        <div className="flex items-center gap-2 text-gray-500 text-sm">
+          <span>Generating response...</span>
+          {elapsedSeconds > 0 && (
+            <span className="tabular-nums text-xs text-gray-400">
+              ({elapsedSeconds.toFixed(1)}s)
+            </span>
+          )}
+        </div>
       </div>
     </motion.div>
   );

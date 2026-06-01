@@ -21,34 +21,26 @@ export function MessageActions({ message, setShowUQModal }: MessageActionsProps)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleLike = () => {
-    console.log("like")
-    console.log(message.id)
-    
-    setLiked(!liked)
-    setDisliked(false)
-  }
+  const handleLike    = () => { setLiked(!liked); setDisliked(false) }
+  const handleDislike = () => { setDisliked(!disliked); setLiked(false) }
 
-  const handleDislike = () => {
-    console.log("dislike")
-    console.log(message.id)
-
-    setDisliked(!disliked)
-    setLiked(false)
-  }
+  // generation_time_seconds comes from the message itself — stored in history,
+  // so it persists across page reloads.
+  const genTime: number | null | undefined = (message as any).generation_time_seconds
 
   return (
-    <div className="flex items-center space-x-1">
+    <div className="flex items-center space-x-1 flex-wrap gap-y-1">
       <Button variant="ghost" size="icon" onClick={handleCopy}>
-        {copied ? (
-            <Check className="text-black dark:text-white" size={16} />
-        ) : (
-            <Copy className="text-gray-500" size={16} />
-        )}
+        {copied
+          ? <Check className="text-black dark:text-white" size={16} />
+          : <Copy className="text-gray-500" size={16} />
+        }
       </Button>
+
       <Button variant="ghost" size="icon" onClick={handleLike}>
         <ThumbsUp className={liked ? "text-black dark:text-white" : "text-gray-500"} size={16} />
       </Button>
+
       <Button variant="ghost" size="icon" onClick={handleDislike}>
         <ThumbsDown className={disliked ? "text-black dark:text-white" : "text-gray-500"} size={16} />
       </Button>
@@ -59,15 +51,22 @@ export function MessageActions({ message, setShowUQModal }: MessageActionsProps)
               Uncertainty Quantification
             </Tooltip>
           }
+      >
+        <span
+          className="cursor-pointer ms-2 text-hover-dark py-1 text-gray-500"
+          style={{ fontSize: '1rem' }}
+          onClick={() => setShowUQModal(true)}
         >
-          <span
-            className="cursor-pointer ms-2 me-4 text-hover-dark py-1 text-gray-500"
-            style={{ fontSize: '1rem' }}
-            onClick={() => setShowUQModal(true)}
-          >
-            UQ
-          </span>
-        </OverlayTrigger>
+          UQ
+        </span>
+      </OverlayTrigger>
+
+      {/* Response time — read from the message object so it survives reload */}
+      {genTime != null && genTime > 0 && (
+        <span className="ms-2 text-xs text-gray-400 tabular-nums select-none">
+          {genTime.toFixed(1)}s
+        </span>
+      )}
     </div>
   )
 }

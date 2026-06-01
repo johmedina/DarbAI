@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { MessageCircle, BotIcon } from 'lucide-react';
+import logo from "@/assets/images/logo.png";
 
 export const Overview = () => {
   return (
@@ -13,7 +14,7 @@ export const Overview = () => {
       transition={{ delay: 0.75 }}
     >
       <div className="rounded-xl p-6 flex flex-col gap-8 leading-relaxed text-center max-w-xl">
-        <img src="src/assets/images/logo.png" alt="Logo" className="h-auto w-auto" />
+        <img src={logo} alt="Logo" className="h-auto w-auto" />
         <p>
           Welcome to <strong>salama</strong><br />
           Your AI companion for safe driving confidence in Qatar
