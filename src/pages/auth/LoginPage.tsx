@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import logo from "@/assets/images/logo.png";
 import { ThemeToggle } from "@/components/custom/theme-toggle";
+import { hashPassword } from "@/lib/apiClient";
 
 export function LoginPage() {
   const { login, isAuthenticated } = useAuth();
@@ -20,7 +21,6 @@ export function LoginPage() {
   const [error, setError]       = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Already logged in — send straight to chat
   if (isAuthenticated) {
     navigate("/", { replace: true });
     return null;
@@ -31,7 +31,9 @@ export function LoginPage() {
     setError("");
     setIsLoading(true);
     try {
-      await login(email.trim(), password);
+      // Hash password with SHA-256 before sending — plaintext never leaves the browser
+      const hashedPassword = await hashPassword(password);
+      await login(email.trim(), hashedPassword);
       navigate("/", { replace: true });
     } catch (err: any) {
       setError(err.message || "Login failed. Please try again.");
@@ -46,11 +48,7 @@ export function LoginPage() {
         <ThemeToggle />
       </div>
       <div className="w-full max-w-sm">
-
-        {/* Card */}
         <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
-
-
           <div className="mb-6 flex flex-col items-center text-center">
             <img src={logo} alt="Salama" className="h-16 w-auto mb-4" />
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -61,14 +59,12 @@ export function LoginPage() {
             </p>
           </div>
 
-          {/* Error banner */}
           {error && (
             <div className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {error}
             </div>
           )}
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground" htmlFor="email">
@@ -114,7 +110,6 @@ export function LoginPage() {
             </Button>
           </form>
 
-          {/* Footer */}
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Don't have an account?{" "}
             <Link

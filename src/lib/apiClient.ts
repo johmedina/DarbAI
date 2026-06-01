@@ -5,6 +5,24 @@
 
 const API_BASE = "http://10.161.232.59:8002";
 
+// ── SHA-256 pre-hash ───────────────────────────────────────────────────────────
+// Hashes the password in the browser before sending over the network.
+// The backend then bcrypts this hash — so plaintext never leaves the device.
+// Uses the native Web Crypto API
+async function sha256(plain: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plain);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+ 
+// Call this before sending any password to the backend
+export async function hashPassword(password: string): Promise<string> {
+  return sha256(password);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function request(
   method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,

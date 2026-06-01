@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import logo from "@/assets/images/logo.png";
 import { ThemeToggle } from "@/components/custom/theme-toggle";
+import { hashPassword } from "@/lib/apiClient";
 
 export function SignupPage() {
   const { signup, isAuthenticated } = useAuth();
@@ -22,7 +23,6 @@ export function SignupPage() {
   const [error, setError]             = useState("");
   const [isLoading, setIsLoading]     = useState(false);
 
-  // Already logged in
   if (isAuthenticated) {
     navigate("/", { replace: true });
     return null;
@@ -43,7 +43,9 @@ export function SignupPage() {
 
     setIsLoading(true);
     try {
-      await signup(email.trim(), username.trim(), password);
+      // Hash password with SHA-256 before sending — plaintext never leaves the browser
+      const hashedPassword = await hashPassword(password);
+      await signup(email.trim(), username.trim(), hashedPassword);
       navigate("/", { replace: true });
     } catch (err: any) {
       setError(err.message || "Sign up failed. Please try again.");
@@ -58,9 +60,7 @@ export function SignupPage() {
         <ThemeToggle />
       </div>
       <div className="w-full max-w-sm">
-
         <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
-
           <div className="mb-6 flex flex-col items-center text-center">
             <img src={logo} alt="Salama" className="h-16 w-auto mb-4" />
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -78,7 +78,6 @@ export function SignupPage() {
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground" htmlFor="email">
                 Email
