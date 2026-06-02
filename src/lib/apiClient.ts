@@ -3,7 +3,7 @@
  * src/lib/apiClient.ts
  */
 
-const API_BASE = `${import.meta.env.BACKEND_SERVER}:${import.meta.env.BACKEND_PORT}`;
+const API_BASE = "http://10.161.232.59:8002";
 
 // ── SHA-256 pre-hash ───────────────────────────────────────────────────────────
 // Hashes the password in the browser before sending over the network.
