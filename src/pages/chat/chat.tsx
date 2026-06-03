@@ -1,9 +1,6 @@
 /**
  * chat.tsx
  * src/pages/chat/chat.tsx
- *
- * Single component instance handles both "/" and "/chat/:chatId" via layout route.
- * This means chatSessions, sidebar state, and Header are never remounted.
  */
 
 import { ChatInput } from "@/components/custom/chatinput";
@@ -30,7 +27,7 @@ const _blobCache = new Map<string, string>();
 
 //converts protected image URLs into usable blob URLs that can be displayed in a web page
 async function toAuthenticatedBlobUrl(imagePath: string, token: string): Promise<string> {
-  if (_blobCache.has(imagePath)) return _blobCache.get(imagePath)!; // performance optimization, doesnt fetch the same image twice
+  if (_blobCache.has(imagePath)) return _blobCache.get(imagePath)!;
   const res = await fetch(`${API_BASE}${imagePath}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -88,6 +85,7 @@ export function Chat() {
   const [messages, setMessages]   = useState<ChatMessageModel[]>([]);
   const [question, setQuestion]   = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [image, setImage]         = useState<File | null>(null);
 
   // Tracks which chatId is currently loaded in messages[]
@@ -98,11 +96,27 @@ export function Chat() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Track the streaming assistant message index so we can update it in-place
+  const streamingMsgIndexRef = useRef<number>(-1);
+
   const selectedChatId = urlChatId ?? null;
 
-  // ── Timer ────────────────────────────────────────────────────────────────
+  // ── Keep streaming message's timer display updated live ──────────────────
   useEffect(() => {
-    if (isLoading) {
+    if (!isStreaming) return;
+    const idx = streamingMsgIndexRef.current;
+    if (idx < 0) return;
+    setMessages((prev) => {
+      if (idx >= prev.length) return prev;
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], generation_time_seconds: elapsedSeconds };
+      return updated;
+    });
+  }, [elapsedSeconds, isStreaming]);
+
+  // ── Timer ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isLoading || isStreaming) {
       setElapsedSeconds(0);
       timerRef.current = setInterval(() => {
         setElapsedSeconds((s) => +(s + 0.1).toFixed(1));
@@ -111,7 +125,7 @@ export function Chat() {
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isLoading]);
+  }, [isLoading, isStreaming]);
 
   // ── Resolve image paths → blob URLs ──────────────────────────────────────
   const resolveSessionImages = useCallback(
@@ -129,7 +143,7 @@ export function Chat() {
     [token]
   );
 
-  // ── Load sidebar history (runs once on mount / token change) ─────────────
+  // ── Load sidebar history ───────────────────────────────────────────────────
   const loadHistory = useCallback(async () => {
     if (!token) return;
     setHistoryLoading(true);
@@ -211,13 +225,14 @@ export function Chat() {
     }
   }
 
-  // ── Send message ──────────────────────────────────────────────────────────
+  // ── Send message with streaming ────────────────────────────────────────────
   async function handleSubmit(text?: string) {
     if (isLoading || !token) return;
     const messageText = text ?? question;
     if (!messageText.trim() && !image) return;
 
     setIsLoading(true);
+    streamingMsgIndexRef.current = -1;
 
     const chatId = selectedChatId ?? uuidv4();
 
@@ -249,82 +264,179 @@ export function Chat() {
     }));
 
     try {
-      let payload: any;
+      // ── Build request body / form ──────────────────────────────────────────
+      let fetchBody: BodyInit;
+      const fetchHeaders: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+      };
+
       if (capturedImage) {
         const formData = new FormData();
         formData.append("question", messageText);
         formData.append("use_rag", "true");
         formData.append("context", JSON.stringify(contextForApi));
         formData.append("image", capturedImage);
-        payload = await apiClient.postForm(`/chats/${chatId}/messages`, formData, token);
+        fetchBody = formData;
+        // Don't set Content-Type — browser sets it with boundary automatically
       } else {
-        payload = await apiClient.post(
-          `/chats/${chatId}/messages`,
-          { question: messageText, use_rag: true, context: contextForApi },
-          token
-        );
+        fetchBody = JSON.stringify({
+          question: messageText,
+          use_rag: true,
+          context: contextForApi,
+        });
+        fetchHeaders["Content-Type"] = "application/json";
       }
 
-      const assistantData = payload.data as ChatMessageModel & {
-        image_url?: string;
-        generation_time_seconds?: number;
-      };
-
-      setMessages((prev) => [...prev, assistantData]);
-
-      // Swap local blob URL with the server-persisted one
-      if (assistantData.image_url) {
-        const resolvedUrl = await toAuthenticatedBlobUrl(assistantData.image_url, token);
-        if (resolvedUrl) {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg === userMessage
-                ? { ...msg, chat_uploaded_files: [{ objectUrl: resolvedUrl }] }
-                : msg
-            )
-          );
-        }
-      }
-
-      // Update sidebar optimistically
-      setChatSessions((prev) => {
-        const newMsg: HistoryMessage = {
-          question:                messageText,
-          response:                assistantData.message,
-          timestamp:               new Date().toISOString(),
-          image_url:               assistantData.image_url ?? null,
-          generation_time_seconds: assistantData.generation_time_seconds ?? null,
-          total_reliability:       assistantData.total_reliability,
-          total_entropy:           assistantData.total_entropy,
-          total_collision_entropy: assistantData.total_collision_entropy,
-        };
-        const idx = prev.findIndex((c) => c.chat_id === chatId);
-        if (idx !== -1) {
-          const updated = {
-            ...prev[idx],
-            messages:     [...prev[idx].messages, newMsg],
-            last_updated: newMsg.timestamp,
-          };
-          return [updated, ...prev.filter((_, i) => i !== idx)];
-        }
-        return [{
-          chat_id:      chatId,
-          title:        messageText.slice(0, 40),
-          last_updated: newMsg.timestamp,
-          messages:     [newMsg],
-        }, ...prev];
+      // ── Open SSE stream ────────────────────────────────────────────────────
+      const res = await fetch(`${API_BASE}/chats/${chatId}/stream`, {
+        method: "POST",
+        headers: fetchHeaders,
+        body: fetchBody,
       });
 
-    } catch (err) {
-      console.error("API error:", err);
-      setMessages((prev) => [...prev, {
-        message: "Sorry, there was an error processing your request. Please try again.",
+      if (!res.ok || !res.body) {
+        throw new Error(`Stream request failed: ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      // Placeholder assistant message — will be updated as tokens arrive
+      const placeholderMsg: ChatMessageModel = {
+        message: "",
         role: ChatMessageRoleType.ASSISTANT,
         chat_id: chatId,
         generation_type: ChatMessageGenerationType.TEXT,
-      }]);
+      };
+
+      setMessages((prev) => {
+        const next = [...prev, placeholderMsg];
+        streamingMsgIndexRef.current = next.length - 1;
+        return next;
+      });
+
+      // Stop showing the spinning "Thinking..." indicator — we have the placeholder now
+      setIsLoading(false);
+      // Start streaming timer — keeps elapsed counter running during token delivery
+      setIsStreaming(true);
+
+      // ── Read SSE stream ────────────────────────────────────────────────────
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? ""; // keep incomplete last line in buffer
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr) continue;
+
+          let event: any;
+          try { event = JSON.parse(jsonStr); } catch { continue; }
+
+          if (event.type === "token") {
+            // Append token to the streaming message in-place
+            setMessages((prev) => {
+              const idx = streamingMsgIndexRef.current;
+              if (idx < 0 || idx >= prev.length) return prev;
+              const updated = [...prev];
+              updated[idx] = {
+                ...updated[idx],
+                message: updated[idx].message + event.content,
+              };
+              return updated;
+            });
+
+          } else if (event.type === "done") {
+            // Replace placeholder with final message + metadata
+            setMessages((prev) => {
+              const idx = streamingMsgIndexRef.current;
+              if (idx < 0 || idx >= prev.length) return prev;
+              const updated = [...prev];
+              updated[idx] = {
+                ...updated[idx],
+                message:                              event.message,
+                total_reliability:                    event.total_reliability,
+                total_entropy:                        event.total_entropy,
+                total_collision_entropy:              event.total_collision_entropy,
+                total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers,
+                generation_time_seconds:              event.generation_time_seconds,
+              };
+              return updated;
+            });
+
+            // Update sidebar
+            const newMsg: HistoryMessage = {
+              question:                messageText,
+              response:                event.message,
+              timestamp:               new Date().toISOString(),
+              image_url:               event.image_url ?? null,
+              generation_time_seconds: event.generation_time_seconds ?? null,
+              total_reliability:       event.total_reliability,
+              total_entropy:           event.total_entropy,
+              total_collision_entropy: event.total_collision_entropy,
+            };
+            setChatSessions((prev) => {
+              const idx = prev.findIndex((c) => c.chat_id === chatId);
+              if (idx !== -1) {
+                const updated = {
+                  ...prev[idx],
+                  messages:     [...prev[idx].messages, newMsg],
+                  last_updated: newMsg.timestamp,
+                };
+                return [updated, ...prev.filter((_, i) => i !== idx)];
+              }
+              return [{
+                chat_id:      chatId,
+                title:        messageText.slice(0, 40),
+                last_updated: newMsg.timestamp,
+                messages:     [newMsg],
+              }, ...prev];
+            });
+
+          } else if (event.type === "error") {
+            setMessages((prev) => {
+              const idx = streamingMsgIndexRef.current;
+              if (idx < 0 || idx >= prev.length) return prev;
+              const updated = [...prev];
+              updated[idx] = {
+                ...updated[idx],
+                message: "Sorry, there was an error processing your request. Please try again.",
+              };
+              return updated;
+            });
+          }
+        }
+      }
+
+    } catch (err) {
+      console.error("Stream error:", err);
+      // If streaming failed before placeholder was added, add error message
+      setMessages((prev) => {
+        const idx = streamingMsgIndexRef.current;
+        if (idx >= 0 && idx < prev.length && prev[idx].role === ChatMessageRoleType.ASSISTANT) {
+          const updated = [...prev];
+          updated[idx] = {
+            ...updated[idx],
+            message: "Sorry, there was an error processing your request. Please try again.",
+          };
+          return updated;
+        }
+        return [...prev, {
+          message: "Sorry, there was an error processing your request. Please try again.",
+          role: ChatMessageRoleType.ASSISTANT,
+          chat_id: urlChatId ?? "",
+          generation_type: ChatMessageGenerationType.TEXT,
+        }];
+      });
     } finally {
       setIsLoading(false);
+      setIsStreaming(false);
+      streamingMsgIndexRef.current = -1;
     }
   }
 
@@ -344,7 +456,6 @@ export function Chat() {
       />
 
       <div className="flex flex-col flex-1 min-w-0">
-        {/* Top bar — Header lives here, always mounted */}
         <div className="flex items-center gap-2 shrink-0 pr-3">
           <Button
             variant="ghost" size="icon"
@@ -374,7 +485,6 @@ export function Chat() {
           </div>
         </div>
 
-        {/* Messages */}
         <div
           className="flex-1 overflow-y-scroll flex flex-col gap-4 px-4 pt-4"
           ref={messagesContainerRef}
@@ -383,11 +493,12 @@ export function Chat() {
           {messages.map((msg, i) => (
             <PreviewMessage key={i} message={msg} />
           ))}
+          {/* ThinkingMessage only shows during the brief RAG+prefill phase
+              before the first token arrives. Once streaming starts it disappears. */}
           {isLoading && <ThinkingMessage elapsedSeconds={elapsedSeconds} />}
           <div ref={messagesEndRef} className="shrink-0 min-h-[24px]" />
         </div>
 
-        {/* Input */}
         <div className="shrink-0 flex mx-auto px-4 pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
           <ChatInput
             question={question}

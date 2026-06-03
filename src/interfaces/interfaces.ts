@@ -1,3 +1,5 @@
+//interface.ts
+
 // export interface message{
 //     content:string;
 //     role:string;
@@ -142,6 +144,8 @@ export interface ChatModel {
     total_reliability?: number
     total_entropy?: number
     total_collision_entropy?: number
+    generation_time_seconds?: number                       
+    total_reliability_with_hidden_layers?: number
   }
   
   export interface ChatMessageFileModel {
