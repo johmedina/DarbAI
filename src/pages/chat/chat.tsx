@@ -1,6 +1,9 @@
 /**
  * chat.tsx
  * src/pages/chat/chat.tsx
+ *
+ * Single component instance handles both "/" and "/chat/:chatId" via layout route.
+ * This means chatSessions, sidebar state, and Header are never remounted.
  */
 
 import { ChatInput } from "@/components/custom/chatinput";
@@ -25,7 +28,6 @@ import { apiClient, API_BASE } from "@/lib/apiClient";
 // ── Authenticated image loader ─────────────────────────────────────────────────
 const _blobCache = new Map<string, string>();
 
-//converts protected image URLs into usable blob URLs that can be displayed in a web page
 async function toAuthenticatedBlobUrl(imagePath: string, token: string): Promise<string> {
   if (_blobCache.has(imagePath)) return _blobCache.get(imagePath)!;
   const res = await fetch(`${API_BASE}${imagePath}`, {
@@ -64,6 +66,8 @@ function sessionToMessages(
         total_entropy: m.total_entropy,
         total_collision_entropy: m.total_collision_entropy,
         generation_time_seconds: m.generation_time_seconds,
+        // Ensure token_data from history is preserved so UQ hover works on reload
+        token_data: (m as any).token_data ?? [],
       } as ChatMessageModel,
     ];
   });
@@ -76,7 +80,7 @@ export function Chat() {
   const { chatId: urlChatId } = useParams<{ chatId?: string }>();
   const [messagesContainerRef, messagesEndRef] = useScrollToBottom<HTMLDivElement>();
 
-  // Sidebar — persists across route changes because Chat never remounts
+  // Sidebar
   const [sidebarOpen, setSidebarOpen]       = useState(false);
   const [chatSessions, setChatSessions]     = useState<ChatSession[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -85,47 +89,71 @@ export function Chat() {
   const [messages, setMessages]   = useState<ChatMessageModel[]>([]);
   const [question, setQuestion]   = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
   const [image, setImage]         = useState<File | null>(null);
 
-  // Tracks which chatId is currently loaded in messages[]
-  // Prevents double-fetching and the image-upload 404 race condition
-  const loadedChatIdRef = useRef<string | null>(null);
+  // FIX 1: track whether streaming has started (first token received)
+  // When true, hide ThinkingMessage even if isLoading is still true
+  const [streamingStarted, setStreamingStarted] = useState(false);
+
+  const loadedChatIdRef   = useRef<string | null>(null);
+  const streamingIdxRef   = useRef<number>(-1);
 
   // Live generation timer
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Track the streaming assistant message index so we can update it in-place
-  const streamingMsgIndexRef = useRef<number>(-1);
-
   const selectedChatId = urlChatId ?? null;
 
-  // ── Keep streaming message's timer display updated live ──────────────────
-  useEffect(() => {
-    if (!isStreaming) return;
-    const idx = streamingMsgIndexRef.current;
-    if (idx < 0) return;
-    setMessages((prev) => {
-      if (idx >= prev.length) return prev;
-      const updated = [...prev];
-      updated[idx] = { ...updated[idx], generation_time_seconds: elapsedSeconds };
-      return updated;
-    });
-  }, [elapsedSeconds, isStreaming]);
+  // ── Timer helpers ─────────────────────────────────────────────────────────
+  function startTimer() {
+    setElapsedSeconds(0);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setElapsedSeconds((s) => +(s + 0.1).toFixed(1));
+    }, 100);
+  }
 
-  // ── Timer ─────────────────────────────────────────────────────────────────
+  // FIX 2: stopTimer returns the current elapsed value synchronously so we
+  // can stamp it onto the done-event message in the same state update, avoiding
+  // the extra render cycle that was delaying the icons.
+  function stopTimer(): number {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    // Read the latest value via a ref trick — capture it below
+    return elapsedSeconds;
+  }
+
+  // Keep a ref mirror of elapsedSeconds so stopTimer can read the latest value
+  // without needing to be inside a closure that captures a stale state.
+  const elapsedRef = useRef(0);
+  useEffect(() => { elapsedRef.current = elapsedSeconds; }, [elapsedSeconds]);
+
+  // ── Timer lifecycle ───────────────────────────────────────────────────────
   useEffect(() => {
-    if (isLoading || isStreaming) {
-      setElapsedSeconds(0);
-      timerRef.current = setInterval(() => {
-        setElapsedSeconds((s) => +(s + 0.1).toFixed(1));
-      }, 100);
+    if (isLoading) {
+      startTimer();
     } else {
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isLoading, isStreaming]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
+
+  // Sync live timer into the streaming message
+  useEffect(() => {
+    const idx = streamingIdxRef.current;
+    if (idx < 0) return;
+    setMessages((prev) => {
+      if (idx >= prev.length) return prev;
+      const msg = prev[idx] as any;
+      if (!msg.is_streaming) return prev;
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], generation_time_seconds: elapsedSeconds };
+      return updated;
+    });
+  }, [elapsedSeconds]);
 
   // ── Resolve image paths → blob URLs ──────────────────────────────────────
   const resolveSessionImages = useCallback(
@@ -143,7 +171,7 @@ export function Chat() {
     [token]
   );
 
-  // ── Load sidebar history ───────────────────────────────────────────────────
+  // ── Load sidebar history ──────────────────────────────────────────────────
   const loadHistory = useCallback(async () => {
     if (!token) return;
     setHistoryLoading(true);
@@ -161,14 +189,11 @@ export function Chat() {
 
   // ── Load messages when URL chatId changes ─────────────────────────────────
   useEffect(() => {
-    // No chatId in URL → new chat screen, clear messages
     if (!urlChatId || !token) {
       setMessages([]);
       loadedChatIdRef.current = null;
       return;
     }
-
-    // Already loaded in state — skip fetch (prevents 404 race on new chats)
     if (loadedChatIdRef.current === urlChatId) return;
 
     (async () => {
@@ -181,8 +206,6 @@ export function Chat() {
           loadedChatIdRef.current = urlChatId;
         }
       } catch {
-        // 403/404 — this chat doesn't belong to this user.
-        // Clear messages and go to home WITHOUT remounting Chat.
         setMessages([]);
         loadedChatIdRef.current = null;
         navigate("/", { replace: true });
@@ -225,19 +248,19 @@ export function Chat() {
     }
   }
 
-  // ── Send message with streaming ────────────────────────────────────────────
+  // ── Send message ──────────────────────────────────────────────────────────
   async function handleSubmit(text?: string) {
     if (isLoading || !token) return;
     const messageText = text ?? question;
     if (!messageText.trim() && !image) return;
 
     setIsLoading(true);
-    streamingMsgIndexRef.current = -1;
+    setStreamingStarted(false); // FIX 1: reset on each new send
+    streamingIdxRef.current = -1;
 
     const chatId = selectedChatId ?? uuidv4();
 
     if (!selectedChatId) {
-      // Pre-mark as loaded so the URL-change effect skips the GET
       loadedChatIdRef.current = chatId;
       navigate(`/chat/${chatId}`, { replace: true });
     }
@@ -264,11 +287,8 @@ export function Chat() {
     }));
 
     try {
-      // ── Build request body / form ──────────────────────────────────────────
       let fetchBody: BodyInit;
-      const fetchHeaders: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
-      };
+      const fetchHeaders: Record<string, string> = { Authorization: `Bearer ${token}` };
 
       if (capturedImage) {
         const formData = new FormData();
@@ -277,84 +297,96 @@ export function Chat() {
         formData.append("context", JSON.stringify(contextForApi));
         formData.append("image", capturedImage);
         fetchBody = formData;
-        // Don't set Content-Type — browser sets it with boundary automatically
       } else {
-        fetchBody = JSON.stringify({
-          question: messageText,
-          use_rag: true,
-          context: contextForApi,
-        });
+        fetchBody = JSON.stringify({ question: messageText, use_rag: true, context: contextForApi });
         fetchHeaders["Content-Type"] = "application/json";
       }
 
-      // ── Open SSE stream ────────────────────────────────────────────────────
       const res = await fetch(`${API_BASE}/chats/${chatId}/stream`, {
-        method: "POST",
-        headers: fetchHeaders,
-        body: fetchBody,
+        method: "POST", headers: fetchHeaders, body: fetchBody,
       });
 
-      if (!res.ok || !res.body) {
-        throw new Error(`Stream request failed: ${res.status}`);
-      }
+      if (!res.ok || !res.body) throw new Error(`Stream failed: ${res.status}`);
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      // Placeholder assistant message — will be updated as tokens arrive
-      const placeholderMsg: ChatMessageModel = {
+      // Insert placeholder assistant message
+      const placeholder: ChatMessageModel = {
         message: "",
         role: ChatMessageRoleType.ASSISTANT,
         chat_id: chatId,
         generation_type: ChatMessageGenerationType.TEXT,
+        is_streaming: true,
       };
-
       setMessages((prev) => {
-        const next = [...prev, placeholderMsg];
-        streamingMsgIndexRef.current = next.length - 1;
+        const next = [...prev, placeholder];
+        streamingIdxRef.current = next.length - 1;
         return next;
       });
 
-      // Stop showing the spinning "Thinking..." indicator — we have the placeholder now
-      setIsLoading(false);
-      // Start streaming timer — keeps elapsed counter running during token delivery
-      setIsStreaming(true);
+      // isLoading stays true while streaming so the timer keeps running.
+      // ThinkingMessage is hidden via streamingStarted flag instead.
 
-      // ── Read SSE stream ────────────────────────────────────────────────────
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer    = "";
+
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+
+        // ── Reader closed: all tokens have arrived ──────────────────────────
+        // Flip is_streaming → false RIGHT NOW so icons appear immediately.
+        // The backend "done" event (which carries UQ metadata) may still be
+        // in the buffer below — it will patch the message silently after.
+        if (done) {
+          if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+          const finalElapsed = elapsedRef.current;
+
+          setMessages((prev) => {
+            const idx = streamingIdxRef.current;
+            if (idx < 0 || idx >= prev.length) return prev;
+            const updated = [...prev];
+            updated[idx] = {
+              ...updated[idx],
+              generation_time_seconds: finalElapsed,
+              is_streaming: false,
+            };
+            return updated;
+          });
+
+          setIsLoading(false);
+          setStreamingStarted(false);
+          streamingIdxRef.current = -1;
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
-        buffer = lines.pop() ?? ""; // keep incomplete last line in buffer
+        buffer = lines.pop() ?? "";
 
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (!jsonStr) continue;
-
           let event: any;
-          try { event = JSON.parse(jsonStr); } catch { continue; }
+          try { event = JSON.parse(line.slice(6).trim()); } catch { continue; }
 
           if (event.type === "token") {
-            // Append token to the streaming message in-place
+            // First token — hide ThinkingMessage immediately
+            if (!streamingStarted) setStreamingStarted(true);
+
             setMessages((prev) => {
-              const idx = streamingMsgIndexRef.current;
+              const idx = streamingIdxRef.current;
               if (idx < 0 || idx >= prev.length) return prev;
               const updated = [...prev];
-              updated[idx] = {
-                ...updated[idx],
-                message: updated[idx].message + event.content,
-              };
+              updated[idx] = { ...updated[idx], message: updated[idx].message + event.content };
               return updated;
             });
 
           } else if (event.type === "done") {
-            // Replace placeholder with final message + metadata
+            // UQ pass finished — patch metadata onto the message (icons already visible)
+            // Stop the timer here too in case the done event arrives before reader closes
+            if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+            const finalElapsed = elapsedRef.current;
+
             setMessages((prev) => {
-              const idx = streamingMsgIndexRef.current;
+              const idx = streamingIdxRef.current;
               if (idx < 0 || idx >= prev.length) return prev;
               const updated = [...prev];
               updated[idx] = {
@@ -364,70 +396,64 @@ export function Chat() {
                 total_entropy:                        event.total_entropy,
                 total_collision_entropy:              event.total_collision_entropy,
                 total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers,
-                generation_time_seconds:              event.generation_time_seconds,
+                generation_time_seconds:              event.generation_time_seconds ?? finalElapsed,
+                token_data:                           event.token_data ?? [],
+                // Keep is_streaming false (already set above, or set it here if
+                // done event somehow arrives before reader closes)
+                is_streaming: false,
               };
               return updated;
             });
 
-            // Update sidebar
-            const newMsg: HistoryMessage = {
-              question:                messageText,
-              response:                event.message,
-              timestamp:               new Date().toISOString(),
-              image_url:               event.image_url ?? null,
-              generation_time_seconds: event.generation_time_seconds ?? null,
-              total_reliability:       event.total_reliability,
-              total_entropy:           event.total_entropy,
-              total_collision_entropy: event.total_collision_entropy,
-            };
             setChatSessions((prev) => {
+              const newMsg: HistoryMessage = {
+                question:                messageText,
+                response:                event.message,
+                timestamp:               new Date().toISOString(),
+                image_url:               event.image_url ?? null,
+                generation_time_seconds: event.generation_time_seconds ?? finalElapsed,
+                total_reliability:       event.total_reliability,
+                total_entropy:           event.total_entropy,
+                total_collision_entropy: event.total_collision_entropy,
+              };
               const idx = prev.findIndex((c) => c.chat_id === chatId);
               if (idx !== -1) {
-                const updated = {
-                  ...prev[idx],
-                  messages:     [...prev[idx].messages, newMsg],
-                  last_updated: newMsg.timestamp,
-                };
-                return [updated, ...prev.filter((_, i) => i !== idx)];
+                const up = { ...prev[idx], messages: [...prev[idx].messages, newMsg], last_updated: newMsg.timestamp };
+                return [up, ...prev.filter((_, i) => i !== idx)];
               }
-              return [{
-                chat_id:      chatId,
-                title:        messageText.slice(0, 40),
-                last_updated: newMsg.timestamp,
-                messages:     [newMsg],
-              }, ...prev];
+              return [{ chat_id: chatId, title: messageText.slice(0, 40), last_updated: newMsg.timestamp, messages: [newMsg] }, ...prev];
             });
+
+            setIsLoading(false);
+            setStreamingStarted(false);
+            streamingIdxRef.current = -1;
 
           } else if (event.type === "error") {
             setMessages((prev) => {
-              const idx = streamingMsgIndexRef.current;
+              const idx = streamingIdxRef.current;
               if (idx < 0 || idx >= prev.length) return prev;
               const updated = [...prev];
-              updated[idx] = {
-                ...updated[idx],
-                message: "Sorry, there was an error processing your request. Please try again.",
-              };
+              updated[idx] = { ...updated[idx], message: "Sorry, there was an error. Please try again.", is_streaming: false };
               return updated;
             });
+            setIsLoading(false);
+            setStreamingStarted(false);
+            streamingIdxRef.current = -1;
           }
         }
       }
 
     } catch (err) {
       console.error("Stream error:", err);
-      // If streaming failed before placeholder was added, add error message
       setMessages((prev) => {
-        const idx = streamingMsgIndexRef.current;
-        if (idx >= 0 && idx < prev.length && prev[idx].role === ChatMessageRoleType.ASSISTANT) {
+        const idx = streamingIdxRef.current;
+        if (idx >= 0 && idx < prev.length) {
           const updated = [...prev];
-          updated[idx] = {
-            ...updated[idx],
-            message: "Sorry, there was an error processing your request. Please try again.",
-          };
+          updated[idx] = { ...updated[idx], message: "Sorry, there was an error. Please try again.", is_streaming: false };
           return updated;
         }
         return [...prev, {
-          message: "Sorry, there was an error processing your request. Please try again.",
+          message: "Sorry, there was an error. Please try again.",
           role: ChatMessageRoleType.ASSISTANT,
           chat_id: urlChatId ?? "",
           generation_type: ChatMessageGenerationType.TEXT,
@@ -435,12 +461,15 @@ export function Chat() {
       });
     } finally {
       setIsLoading(false);
-      setIsStreaming(false);
-      streamingMsgIndexRef.current = -1;
+      setStreamingStarted(false);
+      streamingIdxRef.current = -1;
     }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+  // FIX 1: show ThinkingMessage only when loading AND streaming hasn't started yet
+  const showThinking = isLoading && !streamingStarted;
+
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
       <Sidebar
@@ -493,9 +522,8 @@ export function Chat() {
           {messages.map((msg, i) => (
             <PreviewMessage key={i} message={msg} />
           ))}
-          {/* ThinkingMessage only shows during the brief RAG+prefill phase
-              before the first token arrives. Once streaming starts it disappears. */}
-          {isLoading && <ThinkingMessage elapsedSeconds={elapsedSeconds} />}
+          {/* FIX 1: only show spinner during RAG/prefill, not during token streaming */}
+          {showThinking && <ThinkingMessage elapsedSeconds={elapsedSeconds} />}
           <div ref={messagesEndRef} className="shrink-0 min-h-[24px]" />
         </div>
 
