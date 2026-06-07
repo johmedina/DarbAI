@@ -39,7 +39,7 @@ export const PreviewMessage = ({ message }: { message: ChatMessageModel }) => {
             <Markdown>{message.message}</Markdown>
           </div>
 
-          {/* Actions (copy/like/dislike/UQ/time) — shown only when not streaming */}
+          {/* Actions shown only when not streaming */}
           {message.role === ChatMessageRoleType.ASSISTANT && !(message as any).is_streaming && (
             <MessageActions message={message} setShowUQModal={setShowUQModal} />
           )}
@@ -57,14 +57,13 @@ export const PreviewMessage = ({ message }: { message: ChatMessageModel }) => {
   );
 };
 
-// Thinking spinner shown before the placeholder message appears
-// (covers RAG fetch + first token latency, typically ~2s)
+// Shown during RAG fetch + prefill phase, before first token arrives.
 export const ThinkingMessage = ({ elapsedSeconds = 0 }: { elapsedSeconds?: number }) => {
   return (
     <motion.div
       className="w-full mx-auto max-w-3xl px-4 group/message"
       initial={{ y: 5, opacity: 0 }}
-      animate={{ y: 0, opacity: 1, transition: { delay: 0.2 } }}
+      animate={{ y: 0, opacity: 1 }}  // no delay — instant appearance and disappearance
       data-role="assistant"
     >
       <div className="flex gap-4 rounded-xl">
