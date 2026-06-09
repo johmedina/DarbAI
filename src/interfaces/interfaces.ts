@@ -144,6 +144,8 @@ export interface ChatModel {
     total_entropy?: number
     total_collision_entropy?: number
     total_reliability_with_hidden_layers?: number
+    total_glu?: number
+    total_logtoku?: number
     generation_time_seconds?: number
     is_streaming?: boolean
   }

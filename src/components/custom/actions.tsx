@@ -1,3 +1,5 @@
+//actions.tsx
+
 import { Button } from "@/components/ui/button"
 import { Copy, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
 import { useState } from "react"
@@ -44,22 +46,21 @@ export function MessageActions({ message, setShowUQModal }: MessageActionsProps)
       <Button variant="ghost" size="icon" onClick={handleDislike}>
         <ThumbsDown className={disliked ? "text-black dark:text-white" : "text-gray-500"} size={16} />
       </Button>
-      <OverlayTrigger
-          placement="top"
-          overlay={
-            <Tooltip>
-              Uncertainty Quantification
-            </Tooltip>
-          }
-      >
-        <span
-          className="cursor-pointer ms-2 text-hover-dark py-1 text-gray-500"
-          style={{ fontSize: '1rem' }}
-          onClick={() => setShowUQModal(true)}
+      
+      {(message.token_data?.length ?? 0) > 0 && (
+        <OverlayTrigger
+            placement="top"
+            overlay={<Tooltip>Uncertainty Quantification</Tooltip>}
         >
-          UQ
-        </span>
-      </OverlayTrigger>
+          <span
+            className="cursor-pointer ms-2 text-hover-dark py-1 text-gray-500"
+            style={{ fontSize: '1rem' }}
+            onClick={() => setShowUQModal(true)}
+          >
+            UQ
+          </span>
+        </OverlayTrigger>
+      )}
 
       {/* Response time — read from the message object so it survives reload */}
       {genTime != null && genTime > 0 && (

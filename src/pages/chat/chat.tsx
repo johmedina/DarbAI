@@ -62,8 +62,11 @@ function sessionToMessages(
         total_reliability: m.total_reliability,
         total_entropy: m.total_entropy,
         total_collision_entropy: m.total_collision_entropy,
+        total_glu:    (m as any).total_glu ?? 0,
+        total_logtoku: (m as any).total_logtoku ?? 0,
         generation_time_seconds: m.generation_time_seconds,
         token_data: (m as any).token_data ?? [],
+        total_reliability_with_hidden_layers: m.total_reliability_with_hidden_layers ?? 0,
       } as ChatMessageModel,
     ];
   });
@@ -242,11 +245,6 @@ export function Chat() {
       is_streaming: true,
     };
 
-    // Compute placeholder index from current messages length BEFORE any state update.
-    // messages.length     = index of userMessage after push
-    // messages.length + 1 = index of placeholder after push
-    // This must be set synchronously before fetch fires so greeting tokens
-    // (which arrive in <50ms) find a valid index.
     streamingIdxRef.current = messages.length + 1;
     setMessages((prev) => [...prev, userMessage, placeholder]);
 
@@ -289,19 +287,13 @@ export function Chat() {
         const { done, value } = await reader.read();
 
         if (done) {
+          // ── Stream byte-reader finished ──────────────────────────────────
+          // DO NOT touch messages here. The SSE "done" event already wrote
+          // is_streaming:false, token_data, generation_time_seconds, etc.
+          // A second setMessages spread here would use stale closure state
+          // and overwrite those fields, causing icons to appear late or
+          // token_data to be wiped (which hid the UQ button).
           if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-          const finalElapsed = elapsedRef.current;
-          setMessages((prev) => {
-            const idx = streamingIdxRef.current;
-            if (idx < 0 || idx >= prev.length) return prev;
-            const updated = [...prev];
-            updated[idx] = {
-              ...updated[idx],
-              generation_time_seconds: finalElapsed,
-              is_streaming: false,
-            };
-            return updated;
-          });
           setIsLoading(false);
           streamingIdxRef.current = -1;
           break;
@@ -328,6 +320,9 @@ export function Chat() {
           } else if (event.type === "done") {
             if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
             const finalElapsed = elapsedRef.current;
+
+            // Single atomic update — sets everything in one render frame so
+            // all icons (copy, like, dislike, gen time, UQ) appear at once.
             setMessages((prev) => {
               const idx = streamingIdxRef.current;
               if (idx < 0 || idx >= prev.length) return prev;
@@ -339,6 +334,8 @@ export function Chat() {
                 total_entropy:                        event.total_entropy,
                 total_collision_entropy:              event.total_collision_entropy,
                 total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers,
+                total_glu:      event.total_glu ?? 0,
+                total_logtoku:  event.total_logtoku ?? 0,
                 generation_time_seconds:              event.generation_time_seconds ?? finalElapsed,
                 token_data:                           event.token_data ?? [],
                 is_streaming:                         false,
@@ -405,10 +402,6 @@ export function Chat() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
-  // Show ThinkingMessage only while loading AND the placeholder has no content yet.
-  // Once the first token arrives it triggers a setMessages re-render, at which
-  // point streamingPlaceholder.message is truthy and ThinkingMessage disappears
-  // in the same frame — no separate state variable needed.
   const streamingPlaceholder = messages.find((m) => (m as any).is_streaming);
   const showThinking = isLoading && !streamingPlaceholder?.message;
 

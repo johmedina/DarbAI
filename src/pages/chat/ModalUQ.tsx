@@ -1,3 +1,5 @@
+//modalUQ.tsx
+
 import { FC, useEffect } from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap'
 import { ChatMessageModel } from '../../../models/chat';
@@ -17,24 +19,44 @@ type TokenStat = {
   reliability: number;
   entropy: number;
   collision_entropy: number;
+  reliability_with_hidden_layers: number;
 };
 
-const RELIABILITY_THRESHOLD = -0.09;
-const CE_THRESHOLD = 2;
-const getReliabilityColor = (r: number, threshold: number = RELIABILITY_THRESHOLD): "red" | "green" | "black" => {
-  if (r < threshold) return "red";
-  if (r === 0) return "green";
+// ── Thresholds ────────────────────────────────────────────────────────────────
+// LogTokU++ (reliability_with_hidden_layers): lower = more uncertain
+const LOGTOKU_PP_THRESHOLD = -0.1;
+// LogTokU  (logtoku aggregate):               lower = more uncertain
+const LOGTOKU_THRESHOLD    = -0.3;
+// GLU:                                        lower (more negative) = more uncertain
+const GLU_THRESHOLD        = -0.13;
+
+// ── Colour helpers ────────────────────────────────────────────────────────────
+/** Red when below threshold (lower = worse), green at 0, black otherwise. */
+const belowIsRed = (v: number, threshold: number): "red" | "green" | "black" => {
+  if (v < threshold) return "red";
+  if (v === 0)       return "green";
   return "black";
 };
 
-const getCEColor = (r: number): "red" | "green" | "black" => {
-  if (r >= CE_THRESHOLD) return "red";
-  if (r === 0) return "green";
-  return "black";
-};
+/** Token-level coloring uses LogTokU++ (reliability_with_hidden_layers). */
+const tokenColor = (t: TokenStat): "red" | "green" | "black" =>
+  belowIsRed(t.reliability_with_hidden_layers, LOGTOKU_PP_THRESHOLD);
 
 const fmt = (x: number | undefined | null) =>
   typeof x === "number" && Number.isFinite(x) ? x.toFixed(5) : "—";
+
+// ── Confidence label ──────────────────────────────────────────────────────────
+const confidenceLabel = (v: number, threshold: number) =>
+  v < threshold ? "uncertain" : "confident";
+
+const confidenceColor = (v: number, threshold: number) =>
+  v < threshold ? "#dc3545" : "#28a745";
+
+// ── Overall banner ────────────────────────────────────────────────────────────
+// Uses LogTokU++ as the primary reliability signal (richest signal — combines
+// logit-level AU/EU with late hidden-layer agreement).
+const isReliable = (totalLogtokuPP: number | undefined) =>
+  totalLogtokuPP == null || totalLogtokuPP > LOGTOKU_PP_THRESHOLD;
 
 const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
 
@@ -44,10 +66,12 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
 
   const tokenData = (chatMessageResponse as any)?.token_data as TokenStat[] | undefined;
 
-  // Totals (safely read and format)
-  const totalReliability = (chatMessageResponse as any)?.total_reliability as number | undefined;
-  const totalEntropy = (chatMessageResponse as any)?.total_entropy as number | undefined;
-  const totalCollisionEntropy = (chatMessageResponse as any)?.total_collision_entropy as number | undefined;
+  // Aggregate scores
+  const totalLogtokuPP   = (chatMessageResponse as any)?.total_reliability_with_hidden_layers as number | undefined;
+  const totalLogtoku     = (chatMessageResponse as any)?.total_logtoku     as number | undefined;
+  const totalGLU         = (chatMessageResponse as any)?.total_glu         as number | undefined;
+
+  const reliable = isReliable(totalLogtokuPP);
 
   return (
     <Modal
@@ -57,58 +81,110 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
       title='Uncertainty Quantification'
     >
       <div>
+        {/* ── Overall verdict ─────────────────────────────────────────────── */}
         <div className='fw-bold mb-5' style={{ fontSize: 16 }}>
-          The response is: 
-          <span style={{ 
-            color: totalReliability && totalReliability > -0.11 ? '#28a745' : '#dc3545',
-            fontWeight: 'bold'
-          }}>
-            {totalReliability && totalReliability > -0.11 ? " reliable" : " unreliable"}
+          The response is:{' '}
+          <span style={{ color: reliable ? '#28a745' : '#dc3545', fontWeight: 'bold' }}>
+            {reliable ? 'reliable' : 'unreliable'}
           </span>
         </div>
 
-        {/* --- Stat Cards --- */}
+        {/* ── Metric cards ────────────────────────────────────────────────── */}
         <div className="d-flex flex-wrap gap-3 mb-4">
-          <div className="flex-grow-1" style={cardStyle}>
-            <div style={cardLabelStyle}>Mean Reliability</div>
-            <div style={cardValueStyle}>{fmt(totalReliability)}</div>
-          </div>
-          <div className="flex-grow-1" style={cardStyle}>
-            <div style={cardLabelStyle}>Mean Entropy</div>
-            <div style={cardValueStyle}>{fmt(totalEntropy)}</div>
-          </div>
-          <div className="flex-grow-1" style={cardStyle}>
-            <div style={cardLabelStyle}>Mean Collision Entropy</div>
-            <div style={cardValueStyle}>{fmt(totalCollisionEntropy)}</div>
-          </div>
+
+          {/* LogTokU++ */}
+          {typeof totalLogtokuPP === "number" && (
+            <div className="flex-grow-1" style={cardStyle}>
+              <div style={cardLabelStyle}>
+                LogTokU++ Score
+                <span
+                  title="Worst-k mean of the hidden-layer-augmented reliability signal: combines AU×EU with late-layer top-1 probability, argmax agreement, and entropy. Lower (more negative) = more uncertain."
+                  style={infoIconStyle}
+                >
+                  ⓘ
+                </span>
+              </div>
+              <div style={{ ...cardValueStyle, color: confidenceColor(totalLogtokuPP, LOGTOKU_PP_THRESHOLD) }}>
+                {fmt(totalLogtokuPP)}
+              </div>
+              <div style={{ fontSize: 11, color: confidenceColor(totalLogtokuPP, LOGTOKU_PP_THRESHOLD), marginTop: 4 }}>
+                {confidenceLabel(totalLogtokuPP, LOGTOKU_PP_THRESHOLD)}
+              </div>
+            </div>
+          )}
+
+          {/* LogTokU */}
+          {typeof totalLogtoku === "number" && (
+            <div className="flex-grow-1" style={cardStyle}>
+              <div style={cardLabelStyle}>
+                LogTokU Score
+                <span
+                  title="Worst-k mean of -(AU × EU). Pure logit-level uncertainty — aleatoric × epistemic. Lower (more negative) = more uncertain."
+                  style={infoIconStyle}
+                >
+                  ⓘ
+                </span>
+              </div>
+              <div style={{ ...cardValueStyle, color: confidenceColor(totalLogtoku, LOGTOKU_THRESHOLD) }}>
+                {fmt(totalLogtoku)}
+              </div>
+              <div style={{ fontSize: 11, color: confidenceColor(totalLogtoku, LOGTOKU_THRESHOLD), marginTop: 4 }}>
+                {confidenceLabel(totalLogtoku, LOGTOKU_THRESHOLD)}
+              </div>
+            </div>
+          )}
+
+          {/* GLU */}
+          {typeof totalGLU === "number" && (
+            <div className="flex-grow-1" style={cardStyle}>
+              <div style={cardLabelStyle}>
+                GLU Score
+                <span
+                  title="Geometry-aware Language Uncertainty = (1 + S̃) × she_R_mean. Combines matrix Rényi entropy of hidden states with Shannon-EU token reliability. Lower (more negative) = more uncertain."
+                  style={infoIconStyle}
+                >
+                  ⓘ
+                </span>
+              </div>
+              <div style={{ ...cardValueStyle, color: confidenceColor(totalGLU, GLU_THRESHOLD) }}>
+                {fmt(totalGLU)}
+              </div>
+              <div style={{ fontSize: 11, color: confidenceColor(totalGLU, GLU_THRESHOLD), marginTop: 4 }}>
+                {confidenceLabel(totalGLU, GLU_THRESHOLD)}
+              </div>
+            </div>
+          )}
+
         </div>
 
-        {/* --- Visualization --- */}
+        {/* ── Token visualisation (LogTokU++) ─────────────────────────────── */}
         {!tokenData?.length ? (
           <p>{chatMessageResponse.message}</p>
         ) : (
           <>
-            <div className='fw-bold mt-10'>LogTokU++</div>
+            <div className='fw-bold mt-10' style={{ marginBottom: 6 }}>
+              LogTokU++
+              <span style={{ fontWeight: 400, fontSize: 12, color: "#667085", marginLeft: 8 }}>
+                — token colour shows hidden-layer reliability (red = uncertain)
+              </span>
+            </div>
             <div
               style={{
                 lineHeight: 1.7,
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-word",
-                fontSize: 16
+                fontSize: 16,
               }}
             >
               {tokenData.map((t, i) => {
                 if (!t || typeof t.token !== "string") return null;
-                const color = getReliabilityColor(t.reliability);
-                const isColored = color !== "black";
+                const color = tokenColor(t);
 
                 const tokenSpan = (
                   <span key={`${i}-${t.token}`} style={{ color }}>
                     {t.token}
                   </span>
                 );
-
-                // if (!isColored) return tokenSpan;
 
                 return (
                   <OverlayTrigger
@@ -119,7 +195,8 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
                         <div style={{ fontSize: 12 }}>
                           <div><strong>AU:</strong> {fmt(t.au)}</div>
                           <div><strong>EU:</strong> {fmt(t.eu)}</div>
-                          <div><strong>Reliability:</strong> {fmt(t.reliability)}</div>
+                          <div><strong>LogTokU:</strong> {fmt(t.logtoku)}</div>
+                          <div><strong>LogTokU++:</strong> {fmt(t.reliability_with_hidden_layers)}</div>
                           <div><strong>Collision Entropy:</strong> {fmt(t.collision_entropy)}</div>
                         </div>
                       </Tooltip>
@@ -129,96 +206,15 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
                   </OverlayTrigger>
                 );
               })}
-            </div>   
-
-            {/* <div className='fw-bold mt-10'>LogTokU</div>
-            <div
-              style={{
-                lineHeight: 1.7,
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                fontSize: 16
-              }}
-            >
-              {tokenData.map((t, i) => {
-                if (!t || typeof t.token !== "string") return null;
-                const color = getReliabilityColor(t.logtoku, -0.15);
-                const isColored = color !== "black";
-
-                const tokenSpan = (
-                  <span key={`${i}-${t.token}`} style={{ color }}>
-                    {t.token}
-                  </span>
-                );
-
-                // if (!isColored) return tokenSpan;
-
-                return (
-                  <OverlayTrigger
-                    key={`${i}-ot`}
-                    placement="top"
-                    overlay={
-                      <Tooltip id={`uq-tip-${i}`}>
-                        <div style={{ fontSize: 12 }}>
-                          <div><strong>AU:</strong> {fmt(t.au)}</div>
-                          <div><strong>EU:</strong> {fmt(t.eu)}</div>
-                          <div><strong>Reliability:</strong> {fmt(t.logtoku)}</div>
-                          <div><strong>Collision Entropy:</strong> {fmt(t.collision_entropy)}</div>
-                        </div>
-                      </Tooltip>
-                    }
-                  >
-                    {tokenSpan}
-                  </OverlayTrigger>
-                );
-              })}
-            </div>    */}
-
-            {/* <div className='fw-bold mt-10'>Collision Entropy</div>
-            <div
-              style={{
-                lineHeight: 1.7,
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                fontSize: 16
-              }}
-            >
-              {tokenData.map((t, i) => {
-                if (!t || typeof t.token !== "string") return null;
-                const color = getCEColor(t.collision_entropy);
-                const isColored = color !== "black";
-
-                const tokenSpan = (
-                  <span key={`${i}-${t.token}`} style={{ color }}>
-                    {t.token}
-                  </span>
-                );
-
-                // if (!isColored) return tokenSpan;
-
-                return (
-                  <OverlayTrigger
-                    key={`${i}-ot`}
-                    placement="top"
-                    overlay={
-                      <Tooltip id={`uq-tip-${i}`}>
-                        <div style={{ fontSize: 12 }}>
-                          <div><strong>CE:</strong> {fmt(t.collision_entropy)}</div>
-                        </div>
-                      </Tooltip>
-                    }
-                  >
-                    {tokenSpan}
-                  </OverlayTrigger>
-                );
-              })}
-            </div>    */}
+            </div>
           </>
         )}
       </div>
     </Modal>
   )
 }
+
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const cardStyle: React.CSSProperties = {
   minWidth: 220,
@@ -243,6 +239,13 @@ const cardValueStyle: React.CSSProperties = {
   fontWeight: 700,
   color: "#111",
   lineHeight: 1.2,
+};
+
+const infoIconStyle: React.CSSProperties = {
+  marginLeft: 5,
+  cursor: "help",
+  color: "#aaa",
+  fontSize: 11,
 };
 
 export { ModalUQ }
