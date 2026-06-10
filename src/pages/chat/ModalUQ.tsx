@@ -24,11 +24,11 @@ type TokenStat = {
 
 // ── Thresholds ────────────────────────────────────────────────────────────────
 // LogTokU++ (reliability_with_hidden_layers): lower = more uncertain
-const LOGTOKU_PP_THRESHOLD = -0.1;
+const LOGTOKU_PP_THRESHOLD = -0.3;
 // LogTokU  (logtoku aggregate):               lower = more uncertain
-const LOGTOKU_THRESHOLD    = -0.3;
+const LOGTOKU_THRESHOLD    = -0.4;
 // GLU:                                        lower (more negative) = more uncertain
-const GLU_THRESHOLD        = -0.13;
+const GLU_THRESHOLD        = -0.05;
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 /** Red when below threshold (lower = worse), green at 0, black otherwise. */

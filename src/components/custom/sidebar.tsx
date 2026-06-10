@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { ResponseVersion } from "../../interfaces/interfaces"
 
 export interface HistoryMessage {
   question: string;
@@ -21,6 +22,8 @@ export interface HistoryMessage {
   total_glu?: number;
   total_logtoku?: number;
   token_data?: any[];
+  message_id?: string;
+  versions?: ResponseVersion[];
 }
 
 export interface ChatSession {
