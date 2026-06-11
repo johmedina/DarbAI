@@ -2,7 +2,7 @@
 
 import { FC, useEffect } from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap'
-import { ChatMessageModel } from '../../../models/chat';
+import { ChatMessageModel } from '../../../models/chat'
 import { Modal } from '@/components/custom/modal'
 
 interface Props {
@@ -24,9 +24,9 @@ type TokenStat = {
 
 // ── Thresholds ────────────────────────────────────────────────────────────────
 // LogTokU++ (reliability_with_hidden_layers): lower = more uncertain
-const LOGTOKU_PP_THRESHOLD = -0.3;
-// LogTokU  (logtoku aggregate):               lower = more uncertain
-const LOGTOKU_THRESHOLD    = -0.4;
+const LOGTOKU_PP_THRESHOLD = -0.09;
+// LogTokU  (logtoku per-token):               lower = more uncertain
+const LOGTOKU_THRESHOLD    = -0.5;
 // GLU:                                        lower (more negative) = more uncertain
 const GLU_THRESHOLD        = -0.05;
 
@@ -38,9 +38,13 @@ const belowIsRed = (v: number, threshold: number): "red" | "green" | "black" => 
   return "black";
 };
 
-/** Token-level coloring uses LogTokU++ (reliability_with_hidden_layers). */
-const tokenColor = (t: TokenStat): "red" | "green" | "black" =>
+/** LogTokU++ token colour — uses reliability_with_hidden_layers */
+const logtokuPPColor = (t: TokenStat): "red" | "green" | "black" =>
   belowIsRed(t.reliability_with_hidden_layers, LOGTOKU_PP_THRESHOLD);
+
+/** LogTokU token colour — uses logtoku directly */
+const logtokuColor = (t: TokenStat): "red" | "green" | "black" =>
+  belowIsRed(t.logtoku, LOGTOKU_THRESHOLD);
 
 const fmt = (x: number | undefined | null) =>
   typeof x === "number" && Number.isFinite(x) ? x.toFixed(5) : "—";
@@ -52,11 +56,66 @@ const confidenceLabel = (v: number, threshold: number) =>
 const confidenceColor = (v: number, threshold: number) =>
   v < threshold ? "#dc3545" : "#28a745";
 
-// ── Overall banner ────────────────────────────────────────────────────────────
-// Uses LogTokU++ as the primary reliability signal (richest signal — combines
-// logit-level AU/EU with late hidden-layer agreement).
+// ── Overall verdict uses LogTokU++ as primary signal ─────────────────────────
 const isReliable = (totalLogtokuPP: number | undefined) =>
   totalLogtokuPP == null || totalLogtokuPP > LOGTOKU_PP_THRESHOLD;
+
+// ── Reusable token visualisation ──────────────────────────────────────────────
+function TokenViz({
+  tokenData,
+  colorFn,
+  tooltipFn,
+  heading,
+  subheading,
+}: {
+  tokenData: TokenStat[];
+  colorFn: (t: TokenStat) => "red" | "green" | "black";
+  tooltipFn: (t: TokenStat, i: number) => React.ReactNode;
+  heading: string;
+  subheading: string;
+}) {
+  return (
+    <>
+      <div className="fw-bold mt-4" style={{ marginBottom: 6 }}>
+        {heading}
+        <span style={{ fontWeight: 400, fontSize: 12, color: "#667085", marginLeft: 8 }}>
+          {subheading}
+        </span>
+      </div>
+      <div
+        style={{
+          lineHeight: 1.7,
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          fontSize: 16,
+        }}
+      >
+        {tokenData.map((t, i) => {
+          if (!t || typeof t.token !== "string") return null;
+          const color = colorFn(t);
+          const tokenSpan = (
+            <span key={`${i}-${t.token}`} style={{ color }}>
+              {t.token}
+            </span>
+          );
+          return (
+            <OverlayTrigger
+              key={`${i}-ot`}
+              placement="top"
+              overlay={
+                <Tooltip id={`uq-tip-${heading}-${i}`}>
+                  {tooltipFn(t, i)}
+                </Tooltip>
+              }
+            >
+              {tokenSpan}
+            </OverlayTrigger>
+          );
+        })}
+      </div>
+    </>
+  );
+}
 
 const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
 
@@ -64,12 +123,10 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
     console.log(chatMessageResponse)
   }, [chatMessageResponse])
 
-  const tokenData = (chatMessageResponse as any)?.token_data as TokenStat[] | undefined;
-
-  // Aggregate scores
-  const totalLogtokuPP   = (chatMessageResponse as any)?.total_reliability_with_hidden_layers as number | undefined;
-  const totalLogtoku     = (chatMessageResponse as any)?.total_logtoku     as number | undefined;
-  const totalGLU         = (chatMessageResponse as any)?.total_glu         as number | undefined;
+  const tokenData    = (chatMessageResponse as any)?.token_data as TokenStat[] | undefined;
+  const totalLogtokuPP = (chatMessageResponse as any)?.total_reliability_with_hidden_layers as number | undefined;
+  const totalLogtoku   = (chatMessageResponse as any)?.total_logtoku     as number | undefined;
+  const totalGLU       = (chatMessageResponse as any)?.total_glu         as number | undefined;
 
   const reliable = isReliable(totalLogtokuPP);
 
@@ -81,6 +138,7 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
       title='Uncertainty Quantification'
     >
       <div>
+
         {/* ── Overall verdict ─────────────────────────────────────────────── */}
         <div className='fw-bold mb-5' style={{ fontSize: 16 }}>
           The response is:{' '}
@@ -157,56 +215,48 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
 
         </div>
 
-        {/* ── Token visualisation (LogTokU++) ─────────────────────────────── */}
+        {/* ── Token visualisations ───────────────────────────────────────── */}
         {!tokenData?.length ? (
           <p>{chatMessageResponse.message}</p>
         ) : (
           <>
-            <div className='fw-bold mt-10' style={{ marginBottom: 6 }}>
-              LogTokU++
-              <span style={{ fontWeight: 400, fontSize: 12, color: "#667085", marginLeft: 8 }}>
-                — token colour shows hidden-layer reliability (red = uncertain)
-              </span>
-            </div>
-            <div
-              style={{
-                lineHeight: 1.7,
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                fontSize: 16,
-              }}
-            >
-              {tokenData.map((t, i) => {
-                if (!t || typeof t.token !== "string") return null;
-                const color = tokenColor(t);
+            {/* LogTokU++ */}
+            <TokenViz
+              heading="LogTokU++"
+              subheading="— hidden-layer reliability (red = uncertain)"
+              tokenData={tokenData}
+              colorFn={logtokuPPColor}
+              tooltipFn={(t, i) => (
+                <div style={{ fontSize: 12 }}>
+                  <div><strong>AU:</strong> {fmt(t.au)}</div>
+                  <div><strong>EU:</strong> {fmt(t.eu)}</div>
+                  <div><strong>LogTokU:</strong> {fmt(t.logtoku)}</div>
+                  <div><strong>LogTokU++:</strong> {fmt(t.reliability_with_hidden_layers)}</div>
+                  <div><strong>Late top-1 prob:</strong> {fmt((t as any).late_mean_top1_prob)}</div>
+                  <div><strong>Late agreement:</strong> {fmt((t as any).late_agreement_rate)}</div>
+                  <div><strong>Late entropy:</strong> {fmt((t as any).late_mean_entropy)}</div>
+                  <div><strong>Collision Entropy:</strong> {fmt(t.collision_entropy)}</div>
+                </div>
+              )}
+            />
 
-                const tokenSpan = (
-                  <span key={`${i}-${t.token}`} style={{ color }}>
-                    {t.token}
-                  </span>
-                );
-
-                return (
-                  <OverlayTrigger
-                    key={`${i}-ot`}
-                    placement="top"
-                    overlay={
-                      <Tooltip id={`uq-tip-${i}`}>
-                        <div style={{ fontSize: 12 }}>
-                          <div><strong>AU:</strong> {fmt(t.au)}</div>
-                          <div><strong>EU:</strong> {fmt(t.eu)}</div>
-                          <div><strong>LogTokU:</strong> {fmt(t.logtoku)}</div>
-                          <div><strong>LogTokU++:</strong> {fmt(t.reliability_with_hidden_layers)}</div>
-                          <div><strong>Collision Entropy:</strong> {fmt(t.collision_entropy)}</div>
-                        </div>
-                      </Tooltip>
-                    }
-                  >
-                    {tokenSpan}
-                  </OverlayTrigger>
-                );
-              })}
-            </div>
+            {/* LogTokU */}
+            <TokenViz
+              heading="LogTokU"
+              subheading="— pure logit-level uncertainty -(AU × EU) (red = uncertain)"
+              tokenData={tokenData}
+              colorFn={logtokuColor}
+              tooltipFn={(t, i) => (
+                <div style={{ fontSize: 12 }}>
+                  <div><strong>AU:</strong> {fmt(t.au)}</div>
+                  <div><strong>EU:</strong> {fmt(t.eu)}</div>
+                  <div><strong>LogTokU -(AU×EU):</strong> {fmt(t.logtoku)}</div>
+                  <div><strong>Entropy:</strong> {fmt(t.entropy)}</div>
+                  <div><strong>Collision Entropy:</strong> {fmt(t.collision_entropy)}</div>
+                  <div><strong>Reliability:</strong> {fmt(t.reliability)}</div>
+                </div>
+              )}
+            />
           </>
         )}
       </div>
