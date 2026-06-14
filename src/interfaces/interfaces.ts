@@ -104,9 +104,23 @@ export interface ChatModel {
     token: string
     au: number
     eu: number
+    logtoku?: number
     reliability: number
     entropy: number
     collision_entropy: number
+    late_mean_top1_prob?: number
+    late_agreement_rate?: number
+    late_mean_entropy?: number
+    reliability_with_hidden_layers?: number
+  }
+
+  export interface SignImage {
+    sign_id: string
+    name: string
+    category: string
+    page: number
+    url: string
+    resolvedUrl?: string
   }
       
   
@@ -142,6 +156,8 @@ export interface ChatModel {
     total_reliability?: number
     total_entropy?: number
     total_collision_entropy?: number
+    total_reliability_with_hidden_layers?: number
+    images?: SignImage[]
   }
   
   export interface ChatMessageFileModel {

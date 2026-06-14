@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export async function fetchChatHistory(userId: string) {
   try {
-    const response = await fetch(`http://10.161.232.59:8002/history?user_id=${userId}`);
+    const response = await fetch(`http://10.161.232.59:8001/history?user_id=${userId}`);
     const data = await response.json();
 
     if (data.success) {

@@ -41,6 +41,25 @@ export const PreviewMessage = ({ message }: { message: ChatMessageModel }) => {
               ) : null
             )}
             <Markdown>{message.message}</Markdown>
+            {message.images && message.images.length > 0 && (
+              <div className="flex flex-wrap gap-3 mt-1">
+                {message.images.map((img) => (
+                  <div key={img.sign_id} className="flex flex-col items-center gap-1">
+                    <img
+                      src={img.resolvedUrl ?? img.url}
+                      alt={img.name}
+                      className="h-28 w-auto rounded-lg border border-border object-contain bg-white"
+                    />
+                    <span className="text-xs text-muted-foreground text-center max-w-[7rem]">
+                      {img.name}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/60">
+                      p.{img.page}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {message.role === ChatMessageRoleType.ASSISTANT && (
