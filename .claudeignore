@@ -1,0 +1,13 @@
+# Python virtualenvs — never index these
+testbackend/venv/
+**/venv/
+**/.venv/
+__pycache__/
+*.pyc
+
+# JS deps / build output
+node_modules/
+dist/
+.next/
+build/
+*.map
