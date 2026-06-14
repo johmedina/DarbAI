@@ -15,6 +15,7 @@ import {
   ChatMessageGenerationType,
   ChatMessageModel,
   ChatMessageRoleType,
+  SignImage,
 } from "../../interfaces/interfaces";
 import { Overview } from "@/components/custom/overview";
 import { Header } from "@/components/custom/header";
@@ -66,7 +67,9 @@ function sessionToMessages(
         total_reliability: m.total_reliability,
         total_entropy: m.total_entropy,
         total_collision_entropy: m.total_collision_entropy,
+        total_reliability_with_hidden_layers: m.total_reliability_with_hidden_layers,
         generation_time_seconds: m.generation_time_seconds,
+        images: m.sign_images,
       } as ChatMessageModel,
     ];
   });
@@ -243,7 +246,8 @@ export function Chat() {
     const capturedImage = image;
     setImage(null);
 
-    const contextForApi = [...messages, userMessage].map((msg) => ({
+    // Context = previous turns only; current question goes in `question` field
+    const contextForApi = messages.map((msg) => ({
       role: msg.role === ChatMessageRoleType.USER ? "user" : "assistant",
       content: msg.message,
     }));
@@ -252,51 +256,50 @@ export function Chat() {
       let payload: any;
       if (capturedImage) {
         const formData = new FormData();
+        formData.append("chat_id", chatId);
         formData.append("question", messageText);
         formData.append("use_rag", "true");
         formData.append("context", JSON.stringify(contextForApi));
         formData.append("image", capturedImage);
-        payload = await apiClient.postForm(`/chats/${chatId}/messages`, formData, token);
+        payload = await apiClient.postForm(`/generate_response`, formData, token);
       } else {
         payload = await apiClient.post(
-          `/chats/${chatId}/messages`,
-          { question: messageText, use_rag: true, context: contextForApi },
+          `/generate_response`,
+          { chat_id: chatId, question: messageText, use_rag: true, context: contextForApi },
           token
         );
       }
 
       const assistantData = payload.data as ChatMessageModel & {
-        image_url?: string;
         generation_time_seconds?: number;
       };
 
-      setMessages((prev) => [...prev, assistantData]);
-
-      // Swap local blob URL with the server-persisted one
-      if (assistantData.image_url) {
-        const resolvedUrl = await toAuthenticatedBlobUrl(assistantData.image_url, token);
-        if (resolvedUrl) {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg === userMessage
-                ? { ...msg, chat_uploaded_files: [{ objectUrl: resolvedUrl }] }
-                : msg
-            )
-          );
-        }
+      // Resolve sign image URLs to authenticated blob URLs
+      if (assistantData.images && assistantData.images.length > 0) {
+        const resolvedImages: SignImage[] = await Promise.all(
+          assistantData.images.map(async (img) => {
+            const resolvedUrl = await toAuthenticatedBlobUrl(img.url, token);
+            return { ...img, resolvedUrl };
+          })
+        );
+        assistantData.images = resolvedImages;
       }
+
+      setMessages((prev) => [...prev, assistantData]);
 
       // Update sidebar optimistically
       setChatSessions((prev) => {
         const newMsg: HistoryMessage = {
-          question:                messageText,
-          response:                assistantData.message,
-          timestamp:               new Date().toISOString(),
-          image_url:               assistantData.image_url ?? null,
-          generation_time_seconds: assistantData.generation_time_seconds ?? null,
-          total_reliability:       assistantData.total_reliability,
-          total_entropy:           assistantData.total_entropy,
-          total_collision_entropy: assistantData.total_collision_entropy,
+          question:                          messageText,
+          response:                          assistantData.message,
+          timestamp:                         new Date().toISOString(),
+          image_url:                         null,
+          generation_time_seconds:           assistantData.generation_time_seconds ?? null,
+          total_reliability:                 assistantData.total_reliability,
+          total_entropy:                     assistantData.total_entropy,
+          total_collision_entropy:           assistantData.total_collision_entropy,
+          total_reliability_with_hidden_layers: assistantData.total_reliability_with_hidden_layers,
+          sign_images:                       assistantData.images,
         };
         const idx = prev.findIndex((c) => c.chat_id === chatId);
         if (idx !== -1) {

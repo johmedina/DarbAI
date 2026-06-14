@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { SignImage } from "../../interfaces/interfaces";
 
 export interface HistoryMessage {
   question: string;
@@ -18,6 +19,7 @@ export interface HistoryMessage {
   total_entropy?: number;
   total_collision_entropy?: number;
   total_reliability_with_hidden_layers?: number;
+  sign_images?: SignImage[];
 }
 
 export interface ChatSession {
