@@ -16,15 +16,18 @@ import {
   ChatMessageModel,
   ChatMessageRoleType,
   SignImage,
+  TokenData,
 } from "../../interfaces/interfaces";
 import { Overview } from "@/components/custom/overview";
 import { Header } from "@/components/custom/header";
 import { Sidebar, ChatSession, HistoryMessage } from "@/components/custom/sidebar";
+import { ThemeToggle } from "@/components/custom/theme-toggle";
+import { ModeSwitch, ChatMode, MODES } from "@/components/custom/mode-switch";
 import { v4 as uuidv4 } from "uuid";
 import { PanelLeftIcon, LogOutIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
-import { apiClient, API_BASE } from "@/lib/apiClient";
+import { apiClient, API_BASE, streamSSE } from "@/lib/apiClient";
+import { toast } from "sonner";
 
 // ── Authenticated image loader ─────────────────────────────────────────────────
 const _blobCache = new Map<string, string>();
@@ -86,6 +89,10 @@ export function Chat() {
   const [sidebarOpen, setSidebarOpen]       = useState(false);
   const [chatSessions, setChatSessions]     = useState<ChatSession[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+
+  // Chat mode — persisted to localStorage
+  const [mode, setMode] = useState<ChatMode>(() => (localStorage.getItem("salama-mode") as ChatMode) || "ask");
+  useEffect(() => { localStorage.setItem("salama-mode", mode); }, [mode]);
 
   // Current conversation
   const [messages, setMessages]   = useState<ChatMessageModel[]>([]);
@@ -218,14 +225,21 @@ export function Chat() {
   async function handleSubmit(text?: string) {
     if (isLoading || !token) return;
     const messageText = text ?? question;
-    if (!messageText.trim() && !image) return;
+
+    // Mode-specific validation
+    if (mode === "read") {
+      if (!image) { toast.error("Attach a sign photo to identify it."); return; }
+    } else if (mode === "name") {
+      if (!messageText.trim()) { toast.error("Describe the sign you're looking for."); return; }
+    } else {
+      if (!messageText.trim() && !image) return;
+    }
 
     setIsLoading(true);
 
     const chatId = selectedChatId ?? uuidv4();
 
     if (!selectedChatId) {
-      // Pre-mark as loaded so the URL-change effect skips the GET
       loadedChatIdRef.current = chatId;
       navigate(`/chat/${chatId}`, { replace: true });
     }
@@ -235,7 +249,7 @@ export function Chat() {
       message: messageText,
       role: ChatMessageRoleType.USER,
       chat_id: chatId,
-      generation_type: image
+      generation_type: image !== null
         ? ChatMessageGenerationType.IMAGE_UNDERSTANDING
         : ChatMessageGenerationType.TEXT,
       ...(localImageObjectUrl ? { chat_uploaded_files: [{ objectUrl: localImageObjectUrl }] } : {}),
@@ -246,94 +260,158 @@ export function Chat() {
     const capturedImage = image;
     setImage(null);
 
-    // Context = previous turns only; current question goes in `question` field
     const contextForApi = messages.map((msg) => ({
       role: msg.role === ChatMessageRoleType.USER ? "user" : "assistant",
       content: msg.message,
     }));
 
+    // Resolves relative sign image paths to authenticated blob URLs
+    async function resolveImages(imgs: SignImage[] | undefined): Promise<SignImage[]> {
+      if (!imgs?.length) return [];
+      return Promise.all(imgs.map(async (img) => ({
+        ...img,
+        resolvedUrl: await toAuthenticatedBlobUrl(img.url, token!),
+      })));
+    }
+
+    // Pushes the completed assistant message into the sidebar session list
+    function pushToSidebar(msg: ChatMessageModel & { generation_time_seconds?: number }) {
+      setChatSessions((prev) => {
+        const newMsg: HistoryMessage = {
+          question:                             messageText,
+          response:                             msg.message,
+          timestamp:                            new Date().toISOString(),
+          image_url:                            null,
+          generation_time_seconds:              msg.generation_time_seconds ?? null,
+          total_reliability:                    msg.total_reliability,
+          total_entropy:                        msg.total_entropy,
+          total_collision_entropy:              msg.total_collision_entropy,
+          total_reliability_with_hidden_layers: msg.total_reliability_with_hidden_layers,
+          sign_images:                          msg.images,
+        };
+        const idx = prev.findIndex((c) => c.chat_id === chatId);
+        if (idx !== -1) {
+          const updated = { ...prev[idx], messages: [...prev[idx].messages, newMsg], last_updated: newMsg.timestamp };
+          return [updated, ...prev.filter((_, i) => i !== idx)];
+        }
+        return [{ chat_id: chatId, title: (messageText || "Sign chat").slice(0, 40), last_updated: newMsg.timestamp, messages: [newMsg] }, ...prev];
+      });
+    }
+
+    let streamingAdded = false;
+
     try {
-      let payload: any;
-      if (capturedImage) {
+      if (mode === "read" && capturedImage) {
+        // ── Read the sign → identify-sign (SigLIP + GPT-4.1-mini, no LLM) ──
+        const form = new FormData();
+        form.append("image", capturedImage);
+        if (messageText.trim()) form.append("question", messageText);
+        const payload = await apiClient.postForm(`/chats/${chatId}/identify-sign`, form, token);
+        const assistantData = payload.data as ChatMessageModel & { generation_time_seconds?: number };
+        assistantData.images = await resolveImages(assistantData.images);
+        setMessages((prev) => [...prev, assistantData]);
+        pushToSidebar(assistantData);
+
+      } else if (mode === "name") {
+        // ── Name the sign → find-sign (BGE-M3 catalog search, no LLM) ──────
+        const payload = await apiClient.post(`/chats/${chatId}/find-sign`, { question: messageText }, token);
+        const assistantData = payload.data as ChatMessageModel & { generation_time_seconds?: number };
+        assistantData.images = await resolveImages(assistantData.images);
+        setMessages((prev) => [...prev, assistantData]);
+        pushToSidebar(assistantData);
+
+      } else if (capturedImage) {
+        // ── Ask + image → non-streaming (streaming doesn't return sign images yet) ─
         const formData = new FormData();
         formData.append("chat_id", chatId);
         formData.append("question", messageText);
         formData.append("use_rag", "true");
         formData.append("context", JSON.stringify(contextForApi));
         formData.append("image", capturedImage);
-        payload = await apiClient.postForm(`/generate_response`, formData, token);
+        const payload = await apiClient.postForm(`/generate_response`, formData, token);
+        const assistantData = payload.data as ChatMessageModel & { generation_time_seconds?: number };
+        assistantData.images = await resolveImages(assistantData.images);
+        setMessages((prev) => [...prev, assistantData]);
+        pushToSidebar(assistantData);
+
       } else {
-        payload = await apiClient.post(
-          `/generate_response`,
+        // ── Ask text-only → SSE token-by-token streaming ─────────────────────
+        let streamText = "";
+        let seenFirst = false;
+
+        for await (const event of streamSSE(
+          `/chats/${chatId}/stream`,
           { chat_id: chatId, question: messageText, use_rag: true, context: contextForApi },
           token
-        );
-      }
-
-      const assistantData = payload.data as ChatMessageModel & {
-        generation_time_seconds?: number;
-      };
-
-      // Resolve sign image URLs to authenticated blob URLs
-      if (assistantData.images && assistantData.images.length > 0) {
-        const resolvedImages: SignImage[] = await Promise.all(
-          assistantData.images.map(async (img) => {
-            const resolvedUrl = await toAuthenticatedBlobUrl(img.url, token);
-            return { ...img, resolvedUrl };
-          })
-        );
-        assistantData.images = resolvedImages;
-      }
-
-      setMessages((prev) => [...prev, assistantData]);
-
-      // Update sidebar optimistically
-      setChatSessions((prev) => {
-        const newMsg: HistoryMessage = {
-          question:                          messageText,
-          response:                          assistantData.message,
-          timestamp:                         new Date().toISOString(),
-          image_url:                         null,
-          generation_time_seconds:           assistantData.generation_time_seconds ?? null,
-          total_reliability:                 assistantData.total_reliability,
-          total_entropy:                     assistantData.total_entropy,
-          total_collision_entropy:           assistantData.total_collision_entropy,
-          total_reliability_with_hidden_layers: assistantData.total_reliability_with_hidden_layers,
-          sign_images:                       assistantData.images,
-        };
-        const idx = prev.findIndex((c) => c.chat_id === chatId);
-        if (idx !== -1) {
-          const updated = {
-            ...prev[idx],
-            messages:     [...prev[idx].messages, newMsg],
-            last_updated: newMsg.timestamp,
-          };
-          return [updated, ...prev.filter((_, i) => i !== idx)];
+        )) {
+          if (event.type === "token") {
+            streamText += (event.content as string) ?? "";
+            if (!seenFirst) {
+              seenFirst = true;
+              streamingAdded = true;
+              setIsLoading(false);
+              setMessages((prev) => [...prev, {
+                message: streamText,
+                role: ChatMessageRoleType.ASSISTANT,
+                chat_id: chatId,
+                generation_type: ChatMessageGenerationType.TEXT,
+              } as ChatMessageModel]);
+            } else {
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                return [...prev.slice(0, -1), { ...last, message: streamText }];
+              });
+            }
+          } else if (event.type === "done") {
+            const doneMsg: ChatMessageModel & { generation_time_seconds?: number } = {
+              message:                              (event.message as string) ?? streamText,
+              role:                                 ChatMessageRoleType.ASSISTANT,
+              chat_id:                              (event.chat_id as string) ?? chatId,
+              generation_type:                      (event.generation_type as ChatMessageGenerationType) ?? ChatMessageGenerationType.TEXT,
+              token_data:                           event.token_data as TokenData[] | undefined,
+              total_reliability:                    event.total_reliability as number | undefined,
+              total_entropy:                        event.total_entropy as number | undefined,
+              total_collision_entropy:              event.total_collision_entropy as number | undefined,
+              total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers as number | undefined,
+              generation_time_seconds:              event.generation_time_seconds as number | undefined,
+              images:                               [],
+            };
+            if (seenFirst) {
+              setMessages((prev) => [...prev.slice(0, -1), doneMsg]);
+            } else {
+              streamingAdded = true;
+              setIsLoading(false);
+              setMessages((prev) => [...prev, doneMsg]);
+            }
+            pushToSidebar(doneMsg);
+            break;
+          } else if (event.type === "error") {
+            throw new Error((event.content as string) ?? "Generation failed");
+          }
         }
-        return [{
-          chat_id:      chatId,
-          title:        messageText.slice(0, 40),
-          last_updated: newMsg.timestamp,
-          messages:     [newMsg],
-        }, ...prev];
-      });
+      }
 
     } catch (err) {
       console.error("API error:", err);
-      setMessages((prev) => [...prev, {
-        message: "Sorry, there was an error processing your request. Please try again.",
-        role: ChatMessageRoleType.ASSISTANT,
-        chat_id: chatId,
-        generation_type: ChatMessageGenerationType.TEXT,
-      }]);
+      setMessages((prev) => {
+        const base = streamingAdded ? prev.slice(0, -1) : prev;
+        return [...base, {
+          message: "Sorry, there was an error processing your request. Please try again.",
+          role: ChatMessageRoleType.ASSISTANT,
+          chat_id: chatId,
+          generation_type: ChatMessageGenerationType.TEXT,
+        } as ChatMessageModel];
+      });
     } finally {
       setIsLoading(false);
     }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+  const empty = messages.length === 0 && !isLoading;
+
   return (
-    <div className="flex h-dvh overflow-hidden bg-background">
+    <div style={{ display: "flex", height: "100dvh", overflow: "hidden", background: "var(--bg)" }}>
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -344,54 +422,89 @@ export function Chat() {
         onRenameChat={handleRenameChat}
         onDeleteChat={handleDeleteChat}
         isLoading={historyLoading}
+        mode={mode}
+        onMode={(id) => { setMode(id); handleNewChat(); }}
       />
 
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Top bar — Header lives here, always mounted */}
-        <div className="flex items-center gap-2 shrink-0 pr-3">
-          <Button
-            variant="ghost" size="icon"
-            className="ml-2 mt-1 shrink-0"
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+        {/* Header */}
+        <div
+          style={{
+            height: 58, flexShrink: 0,
+            display: "flex", alignItems: "center", gap: 8, padding: "0 12px",
+            borderBottom: empty ? "1px solid transparent" : "1px solid var(--line)",
+            transition: "border-color .2s",
+          }}
+        >
+          <button
             onClick={() => setSidebarOpen((o) => !o)}
             aria-label="Toggle sidebar"
+            style={{
+              width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "var(--ink-2)", border: "1px solid transparent",
+              background: "transparent", cursor: "pointer",
+              transition: "background .15s, border-color .15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; e.currentTarget.style.borderColor = "var(--line)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
           >
-            <PanelLeftIcon className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <Header />
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            {user && (
-              <span className="text-xs text-muted-foreground hidden sm:block">
-                {user.username}
-              </span>
-            )}
-            <Button
-              variant="ghost" size="icon"
-              onClick={logout}
-              aria-label="Log out"
-              title="Log out"
-            >
-              <LogOutIcon className="h-4 w-4" />
-            </Button>
-          </div>
+            <PanelLeftIcon size={19} />
+          </button>
+
+          <Header />
+
+          <ModeSwitch mode={mode} onMode={(id) => { setMode(id); handleNewChat(); }} />
+
+          <div style={{ flex: 1 }} />
+
+          <ThemeToggle />
+
+          {user && (
+            <span style={{ fontSize: 12.5, color: "var(--ink-3)", display: "none" }} className="sm:block">
+              {user.username}
+            </span>
+          )}
+
+          <button
+            onClick={logout}
+            aria-label="Log out"
+            title="Log out"
+            style={{
+              width: 36, height: 36, borderRadius: 9,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "var(--ink-2)", border: "1px solid transparent",
+              background: "transparent", cursor: "pointer",
+              transition: "background .15s, border-color .15s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; e.currentTarget.style.borderColor = "var(--line)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
+          >
+            <LogOutIcon size={18} />
+          </button>
         </div>
 
         {/* Messages */}
         <div
-          className="flex-1 overflow-y-scroll flex flex-col gap-4 px-4 pt-4"
+          style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16, paddingTop: empty ? 0 : 16 }}
           ref={messagesContainerRef}
         >
-          {messages.length === 0 && !isLoading && <Overview />}
+          {empty && (
+            <Overview
+              mode={mode}
+              onSuggest={(text) => handleSubmit(text)}
+              onAttachImage={(file) => setImage(file)}
+            />
+          )}
           {messages.map((msg, i) => (
             <PreviewMessage key={i} message={msg} />
           ))}
           {isLoading && <ThinkingMessage elapsedSeconds={elapsedSeconds} />}
-          <div ref={messagesEndRef} className="shrink-0 min-h-[24px]" />
+          <div ref={messagesEndRef} style={{ flexShrink: 0, minHeight: 24 }} />
         </div>
 
         {/* Input */}
-        <div className="shrink-0 flex mx-auto px-4 pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
+        <div style={{ flexShrink: 0, padding: "10px 0 18px" }}>
           <ChatInput
             question={question}
             setQuestion={setQuestion}
@@ -399,6 +512,8 @@ export function Chat() {
             isLoading={isLoading}
             image={image}
             setImage={setImage}
+            placeholder={MODES[mode].placeholder}
+            emphasizeAttach={mode === "read"}
           />
         </div>
       </div>

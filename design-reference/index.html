@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salama — Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<style>/* arabic */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("7dc148ad-f37d-4a6c-84a8-294c056b0f03") format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("e10c3e78-0310-4229-878f-85b8d3892f7e") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("b1f8f97b-9dc0-462e-acce-55ed037ff28e") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("be201aa7-6012-47e8-9f67-221021255095") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* arabic */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("580529f4-09a4-483f-9e27-00db38c8b643") format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("6f1877b6-0ee9-4f13-adb6-b562f5868193") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("45acfec8-b9dd-4967-a7f1-1f01f617b671") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("2f8fa00e-1897-4787-83d7-3789c63345bd") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* arabic */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fc43acf6-f3e3-4d84-ac98-28ddcdee6156") format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("84f2d2ad-85ec-4883-917c-b5250fc927a7") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("e16a4c2f-ee5b-4f5c-be68-3af4b3b9b4b3") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fcb4c9ae-4438-4089-80b7-1f092b0c00b5") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* arabic */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("ce5b5d76-6bf4-44f5-82d5-1aaaae0fa36f") format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("6674fa76-254d-4e3c-9a49-c54c8b87de7b") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("7e29b9c5-15b6-4243-a0ed-24081a2cba23") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("f354dbbc-79cd-483a-b57f-e25e3c479124") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+
+
+
+<!-- runtime lib stripped -->
+<!-- runtime lib stripped -->
+<!-- runtime lib stripped -->
+<style>
+  @font-face {
+    font-family: 'Geist';
+    src: url("71ed6abc-d36a-4c87-b881-5c7376f00c0a") format('woff2');
+    font-weight: 100 900;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Geist Mono';
+    src: url("cbae5a13-827a-4f85-a3b5-9e35b9d9d65c") format('woff2');
+    font-weight: 100 900;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #F7F6F1;
+    --surface: #FFFFFF;
+    --surface-2: #FBFAF5;
+    --ink: #1A1813;
+    --ink-2: #6B6657;
+    --ink-3: #A19C8B;
+    --line: #EAE7DD;
+    --line-2: #DDD9CC;
+    --road: #F2B705;
+    --road-deep: #DCA400;
+    --reliable: #2F9E6B;
+    --reliable-bg: #E9F5EE;
+    --reliable-line: #BFE3CF;
+    --caution: #CF5C36;
+    --caution-bg: #FBEDE6;
+    --caution-line: #F1CDBC;
+    --user-bubble: #25221C;
+    --user-ink: #F7F4EC;
+    --shadow-sm: 0 1px 2px rgba(26,24,19,.05), 0 1px 1px rgba(26,24,19,.04);
+    --shadow-md: 0 4px 16px -4px rgba(26,24,19,.10), 0 2px 6px -2px rgba(26,24,19,.06);
+    --shadow-lg: 0 24px 60px -16px rgba(26,24,19,.22), 0 8px 24px -8px rgba(26,24,19,.12);
+    --r-sm: 9px;
+    --r-md: 13px;
+    --r-lg: 18px;
+    --font: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+    --font-ar: 'IBM Plex Sans Arabic', 'Geist', sans-serif;
+  }
+
+  html[dir="rtl"] { --font: var(--font-ar); }
+  /* keep Latin numerals/labels crisp inside RTL where intended */
+  .lat { font-family: 'Geist', sans-serif; }
+
+  html[data-theme="dark"] {
+    --bg: #121110;
+    --surface: #1A1916;
+    --surface-2: #221F19;
+    --ink: #F4F1E8;
+    --ink-2: #A8A491;
+    --ink-3: #6F6B5B;
+    --line: #2A2823;
+    --line-2: #353229;
+    --road: #F2B705;
+    --road-deep: #C99C12;
+    --reliable: #4BC489;
+    --reliable-bg: #16271E;
+    --reliable-line: #244C38;
+    --caution: #E78058;
+    --caution-bg: #2A1A12;
+    --caution-line: #4A2C1D;
+    --user-bubble: #2E2B24;
+    --user-ink: #F4F1E8;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --shadow-md: 0 4px 16px -4px rgba(0,0,0,.5);
+    --shadow-lg: 0 24px 60px -16px rgba(0,0,0,.7);
+    --wm-filter: invert(1) hue-rotate(180deg) saturate(1.1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow: hidden;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+  input, textarea { font: inherit; color: inherit; }
+  ::selection { background: var(--road); color: #1A1813; }
+
+  /* ── Road lane motif ───────────────────────────────── */
+  .road-line {
+    height: 8px;
+    border-radius: 99px;
+    background: var(--ink);
+    position: relative;
+    overflow: hidden;
+  }
+  .road-line::after {
+    content: "";
+    position: absolute;
+    left: 6px; right: 6px; top: 50%;
+    height: 2px; transform: translateY(-50%);
+    background: repeating-linear-gradient(90deg,
+      var(--road) 0 11px, transparent 11px 22px);
+  }
+  .road-strip {
+    background: var(--ink);
+    position: relative;
+    overflow: hidden;
+  }
+  .road-strip::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 50%;
+    height: 4px; transform: translateY(-50%);
+    background: repeating-linear-gradient(90deg,
+      var(--road) 0 26px, transparent 26px 52px);
+    animation: road-move 1.1s linear infinite;
+  }
+  @keyframes road-move {
+    to { background-position-x: -52px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .road-strip::after { animation: none; }
+  }
+
+  /* scrollbars */
+  .scroll::-webkit-scrollbar { width: 10px; }
+  .scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 99px; border: 3px solid var(--bg); }
+  .scroll::-webkit-scrollbar-track { background: transparent; }
+
+  .fade-up { animation: fadeUp .5s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .pop { animation: pop .35s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* theme-aware wordmark swap */
+  .wm-d, .wm-l { display: block; }
+  .wm-l { display: none; }
+  html[data-theme="dark"] .wm-d { display: none; }
+  html[data-theme="dark"] .wm-l { display: block; }
+
+  /* sidebar session row */
+  .histrow { border-radius: 9px; transition: background .12s; }
+  .histrow:hover { background: var(--surface-2); }
+  .histrow .sel { color: var(--ink-2); transition: color .12s; }
+  .histrow:hover .sel { color: var(--ink); }
+  .histrow .dots { opacity: 0; transition: opacity .12s, background .12s; }
+  .histrow:hover .dots, .histrow .dots[data-open="true"] { opacity: 1; }
+  .histrow .dots:hover { background: var(--line); }
+  .menuitem { transition: background .12s; }
+  .menuitem:hover { background: var(--surface-2); }
+  @media (hover: none) { .histrow .dots { opacity: 1; } }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+<!-- mounts a component from components/ -->
+<!-- mounts a component from components/ -->
+<!-- mounts a component from components/ -->
+<!-- mounts a component from components/ -->
+<!-- mounts a component from components/ -->
+<!-- mounts a component from components/ -->
+
+
+</body></html>
