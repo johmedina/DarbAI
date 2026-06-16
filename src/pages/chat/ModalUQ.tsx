@@ -190,10 +190,6 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
   const totalLogtokuPP = (chatMessageResponse as any)?.total_reliability_with_hidden_layers as number | undefined;
   const totalLogtoku   = (chatMessageResponse as any)?.total_logtoku as number | undefined;
   const totalGLU       = (chatMessageResponse as any)?.total_glu    as number | undefined;
-  // Legacy fields (still shown in metric cards)
-  const totalReliability      = chatMessageResponse.total_reliability;
-  const totalEntropy          = chatMessageResponse.total_entropy;
-  const totalCollisionEntropy = chatMessageResponse.total_collision_entropy;
 
   const reliable   = isReliable(totalLogtokuPP);
   const hasLogtokuPP = typeof totalLogtokuPP === "number" && Number.isFinite(totalLogtokuPP);
@@ -332,25 +328,6 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
                 threshold={GLU_THRESHOLD}
               />
             )}
-          </div>
-
-          {/* Secondary metric cards (legacy / supplemental) */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 26, flexWrap: "wrap" }}>
-            <MetricCard
-              label="Reliability"
-              hint="How confident the model is that its words are grounded in the source documents. Higher is better."
-              value={totalReliability}
-            />
-            <MetricCard
-              label="Entropy"
-              hint="Average token-level uncertainty. Lower entropy means the model was more decisive."
-              value={totalEntropy}
-            />
-            <MetricCard
-              label="Collision Entropy"
-              hint="Measures distribution sharpness. Higher values indicate the model spread across many possible next tokens."
-              value={totalCollisionEntropy}
-            />
           </div>
 
           {/* ── Token word maps ───────────────────────────────────────────── */}
