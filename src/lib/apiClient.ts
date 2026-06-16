@@ -3,7 +3,7 @@
  * src/lib/apiClient.ts
  */
 
-const API_BASE = "http://10.161.232.59:8002";
+const API_BASE = "http://10.161.232.59:8001";
 
 // ── SHA-256 pre-hash ───────────────────────────────────────────────────────────
 // Hashes the password in the browser before sending over the network.
@@ -57,6 +57,57 @@ async function request(
   }
 
   return json;
+}
+
+// ── SSE streaming ─────────────────────────────────────────────────────────────
+// Async generator that reads a Server-Sent Events response line-by-line.
+// Each yielded value is a parsed JSON object from a "data: {...}" line.
+export async function* streamSSE(
+  path: string,
+  body: unknown,
+  token: string
+): AsyncGenerator<Record<string, any>> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => null);
+    if (res.status === 401) {
+      localStorage.removeItem("auth_token");
+      window.location.href = "/login";
+    }
+    throw new Error(json?.detail || json?.message || `Request failed with status ${res.status}`);
+  }
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      // SSE events are separated by blank lines (\n\n)
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() ?? "";
+      for (const part of parts) {
+        for (const line of part.split("\n")) {
+          if (line.startsWith("data: ")) {
+            const raw = line.slice(6).trim();
+            if (raw) {
+              try { yield JSON.parse(raw); } catch { /* skip malformed */ }
+            }
+          }
+        }
+      }
+    }
+  } finally {
+    reader.cancel();
+  }
 }
 
 export const apiClient = {

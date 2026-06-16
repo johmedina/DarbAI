@@ -1,17 +1,28 @@
-// actions.tsx
-
-import { Button } from "@/components/ui/button"
-import { Copy, ThumbsUp, ThumbsDown, Check, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react"
 import { useState } from "react"
+import { Copy, ThumbsUp, ThumbsDown, Check, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react"
 import { ChatMessageModel, ResponseVersion } from "../../interfaces/interfaces"
 import { OverlayTrigger, Tooltip } from "react-bootstrap"
+
+const RELIABILITY_THRESHOLD = -0.11;
+
+const RelRing = ({ value, size = 18, sw = 3, color }: { value: number; size?: number; sw?: number; color: string }) => {
+  const r = (size - sw) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)", display: "block" }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={sw} opacity={0.18} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={sw}
+        strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - value)}
+        style={{ transition: "stroke-dashoffset .6s cubic-bezier(.2,.7,.2,1)" }} />
+    </svg>
+  );
+};
 
 interface MessageActionsProps {
   message: ChatMessageModel
   setShowUQModal: (show: boolean) => void
   onRegenerate?: () => void
   isRegenerating?: boolean
-  // version switcher
   versions?: ResponseVersion[]
   activeVersionIdx?: number
   onVersionChange?: (idx: number) => void
@@ -31,106 +42,167 @@ export function MessageActions({
   const [disliked, setDisliked] = useState(false)
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(message.response ?? message.message)
+    navigator.clipboard.writeText((message as any).response ?? message.message)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleLike    = () => { setLiked(!liked);       setDisliked(false) }
-  const handleDislike = () => { setDisliked(!disliked); setLiked(false)    }
-
+  const totalReliability = message.total_reliability;
   const genTime: number | null | undefined = (message as any).generation_time_seconds
-  const hasVersions = versions.length > 1
+
+  const hasVersions   = versions.length > 1
   const totalVersions = versions.length
-  // display as 1-based
-  const displayNum = hasVersions ? activeVersionIdx + 1 : null
+  const displayNum    = hasVersions ? activeVersionIdx + 1 : null
+
+  const hasUQ      = typeof totalReliability === "number" && Number.isFinite(totalReliability);
+  const ok         = hasUQ && totalReliability! > RELIABILITY_THRESHOLD;
+  const confidence = hasUQ ? Math.max(0, Math.min(1, 1 + totalReliability! / 0.2)) : 0;
+  const color      = ok ? "var(--reliable)"      : "var(--caution)";
+  const bg         = ok ? "var(--reliable-bg)"   : "var(--caution-bg)";
+  const line       = ok ? "var(--reliable-line)" : "var(--caution-line)";
+
+  const iconBtn: React.CSSProperties = {
+    width: 30, height: 30, borderRadius: 8,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    background: "transparent", border: "1px solid transparent",
+    cursor: "pointer", color: "var(--ink-3)",
+    transition: "background .15s, border-color .15s, color .15s",
+  };
+
+  const onHover = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.background    = "var(--surface-2)";
+    e.currentTarget.style.borderColor   = "var(--line)";
+    e.currentTarget.style.color         = "var(--ink)";
+  };
+  const onUnhover = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.background    = "transparent";
+    e.currentTarget.style.borderColor   = "transparent";
+    e.currentTarget.style.color         = "var(--ink-3)";
+  };
 
   return (
-    <div className="flex items-center space-x-1 flex-wrap gap-y-1 mt-1">
+    <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 12, flexWrap: "wrap" }}>
 
       {/* Copy */}
-      <Button variant="ghost" size="icon" onClick={handleCopy} disabled={isRegenerating}>
+      <button style={iconBtn} onClick={handleCopy} aria-label="Copy" disabled={isRegenerating}
+        onMouseEnter={onHover} onMouseLeave={onUnhover}>
         {copied
-          ? <Check className="text-black dark:text-white" size={16} />
-          : <Copy className="text-gray-500" size={16} />
-        }
-      </Button>
+          ? <Check size={15} style={{ color: "var(--reliable)" }} />
+          : <Copy size={15} />}
+      </button>
 
-      {/* Like / dislike */}
-      <Button variant="ghost" size="icon" onClick={handleLike} disabled={isRegenerating}>
-        <ThumbsUp className={liked ? "text-black dark:text-white" : "text-gray-500"} size={16} />
-      </Button>
-      <Button variant="ghost" size="icon" onClick={handleDislike} disabled={isRegenerating}>
-        <ThumbsDown className={disliked ? "text-black dark:text-white" : "text-gray-500"} size={16} />
-      </Button>
+      {/* Thumbs up */}
+      <button
+        style={{ ...iconBtn, color: liked ? "var(--ink)" : "var(--ink-3)" }}
+        onClick={() => { setLiked(!liked); setDisliked(false); }}
+        aria-label="Helpful"
+        disabled={isRegenerating}
+        onMouseEnter={onHover} onMouseLeave={onUnhover}
+      >
+        <ThumbsUp size={15} />
+      </button>
 
-      {/* UQ — only when token_data is present and not mid-regeneration */}
-      {(message.token_data?.length ?? 0) > 0 && !isRegenerating && (
-        <OverlayTrigger placement="top" overlay={<Tooltip>Uncertainty Quantification</Tooltip>}>
-          <span
-            className="cursor-pointer ms-1 py-1 text-gray-500"
-            style={{ fontSize: "1rem" }}
-            onClick={() => setShowUQModal(true)}
-          >
-            UQ
-          </span>
-        </OverlayTrigger>
-      )}
+      {/* Thumbs down */}
+      <button
+        style={{ ...iconBtn, color: disliked ? "var(--ink)" : "var(--ink-3)" }}
+        onClick={() => { setDisliked(!disliked); setLiked(false); }}
+        aria-label="Not helpful"
+        disabled={isRegenerating}
+        onMouseEnter={onHover} onMouseLeave={onUnhover}
+      >
+        <ThumbsDown size={15} />
+      </button>
 
-      {/* Regenerate — always shown on assistant messages */}
+      {/* Regenerate */}
       {onRegenerate && (
         <OverlayTrigger placement="top" overlay={<Tooltip>Regenerate response</Tooltip>}>
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            style={iconBtn}
             onClick={onRegenerate}
             disabled={isRegenerating}
+            aria-label="Regenerate"
+            onMouseEnter={onHover} onMouseLeave={onUnhover}
           >
             <RotateCcw
-              size={16}
-              className={isRegenerating ? "animate-spin text-gray-300" : "text-gray-500"}
+              size={15}
+              style={{
+                color: isRegenerating ? "var(--ink-3)" : undefined,
+                animation: isRegenerating ? "spin 1s linear infinite" : undefined,
+              }}
             />
-          </Button>
+          </button>
         </OverlayTrigger>
       )}
 
-      {/* Version switcher — only when there are multiple versions */}
+      {/* Version switcher */}
       {hasVersions && onVersionChange && (
-        <div className="flex items-center gap-0.5 ms-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
+        <div style={{ display: "flex", alignItems: "center", gap: 2, marginLeft: 2 }}>
+          <button
+            style={iconBtn}
             disabled={activeVersionIdx === 0 || isRegenerating}
             onClick={() => onVersionChange(activeVersionIdx - 1)}
             aria-label="Previous version"
+            onMouseEnter={onHover} onMouseLeave={onUnhover}
           >
-            <ChevronLeft size={14} className="text-gray-500" />
-          </Button>
-
-          <span className="text-xs text-gray-400 tabular-nums select-none min-w-[32px] text-center">
+            <ChevronLeft size={14} />
+          </button>
+          <span style={{
+            fontSize: 12, color: "var(--ink-3)", fontVariantNumeric: "tabular-nums",
+            userSelect: "none", minWidth: 32, textAlign: "center",
+          }}>
             {displayNum}/{totalVersions}
           </span>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
+          <button
+            style={iconBtn}
             disabled={activeVersionIdx === totalVersions - 1 || isRegenerating}
             onClick={() => onVersionChange(activeVersionIdx + 1)}
             aria-label="Next version"
+            onMouseEnter={onHover} onMouseLeave={onUnhover}
           >
-            <ChevronRight size={14} className="text-gray-500" />
-          </Button>
+            <ChevronRight size={14} />
+          </button>
         </div>
       )}
 
-      {/* Generation time — from active version if versioned, else from message */}
+      {/* Generation time */}
       {genTime != null && genTime > 0 && !isRegenerating && (
-        <span className="ms-1 text-xs text-gray-400 tabular-nums select-none">
+        <span style={{
+          fontSize: 11.5, color: "var(--ink-3)",
+          fontVariantNumeric: "tabular-nums", padding: "0 4px",
+        }}>
           {genTime.toFixed(1)}s
         </span>
       )}
+
+      {/* Reliability chip — UQ entry point */}
+      {hasUQ && !isRegenerating && (
+        <button
+          onClick={() => setShowUQModal(true)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 9, whiteSpace: "nowrap",
+            padding: "5px 11px 5px 7px", borderRadius: 99, marginLeft: 4,
+            background: bg, border: `1px solid ${line}`, color,
+            cursor: "pointer",
+            transition: "transform .15s, box-shadow .15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.boxShadow = "var(--shadow-sm)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+          onMouseLeave={e => { e.currentTarget.style.boxShadow = "none";             e.currentTarget.style.transform = "none"; }}
+        >
+          <span style={{ color, display: "flex" }}>
+            <RelRing value={confidence} color={color} />
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-.01em" }}>
+            {ok ? "Verified reliable" : "Use caution"}
+          </span>
+          <span style={{ width: 1, height: 13, background: line, flexShrink: 0 }} />
+          <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8, display: "inline-flex", alignItems: "center", gap: 4 }}>
+            How we know
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ transform: "rotate(90deg)" }}>
+              <path d="M7 10l5 5 5-5" />
+            </svg>
+          </span>
+        </button>
+      )}
     </div>
-  )
+  );
 }

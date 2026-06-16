@@ -1,22 +1,24 @@
-import { Moon, Sun } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useTheme } from "@/context/ThemeContext"
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "@/context/ThemeContext";
 
 export function ThemeToggle() {
-  const { isDarkMode, toggleTheme } = useTheme()
-
+  const { isDarkMode, toggleTheme } = useTheme();
   return (
-    <Button
-      variant="outline"
-      className="bg-background border border-gray text-gray-600 hover:white dark:text-gray-200 h-10"
+    <button
       onClick={toggleTheme}
+      aria-label="Toggle theme"
+      title="Toggle theme"
+      style={{
+        width: 36, height: 36, borderRadius: 9,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "var(--ink-2)", border: "1px solid transparent",
+        background: "transparent", cursor: "pointer",
+        transition: "background .15s, border-color .15s",
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; e.currentTarget.style.borderColor = "var(--line)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
     >
-      {isDarkMode ? (
-        <Moon className="h-[1.2rem] w-[1.2rem]" />
-      ) : (
-        <Sun className="h-[1.2rem] w-[1.2rem]" />
-      )}
-      <span className="sr-only">Toggle theme</span>
-    </Button>
-  )
+      {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
+    </button>
+  );
 }

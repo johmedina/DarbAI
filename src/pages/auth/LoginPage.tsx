@@ -1,19 +1,14 @@
-/**
- * LoginPage.tsx
- * src/pages/auth/LoginPage.tsx
- */
-
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, InputHTMLAttributes } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Moon, Sun } from "lucide-react";
 import logo from "@/assets/images/logo.png";
-import { ThemeToggle } from "@/components/custom/theme-toggle";
+import { useTheme } from "@/context/ThemeContext";
 import { hashPassword } from "@/lib/apiClient";
 
 export function LoginPage() {
   const { login, isAuthenticated } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const [email, setEmail]       = useState("");
@@ -31,7 +26,6 @@ export function LoginPage() {
     setError("");
     setIsLoading(true);
     try {
-      // Hash password with SHA-256 before sending — plaintext never leaves the browser
       const hashedPassword = await hashPassword(password);
       await login(email.trim(), hashedPassword);
       navigate("/", { replace: true });
@@ -43,84 +37,153 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
+    <div style={{ height: "100vh", display: "flex", background: "var(--bg)", position: "relative", overflow: "hidden" }}>
+      {/* Theme toggle */}
+      <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}>
+        <IconBtn onClick={toggleTheme} label="Toggle theme">
+          {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+        </IconBtn>
       </div>
-      <div className="w-full max-w-sm">
-        <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
-          <div className="mb-6 flex flex-col items-center text-center">
-            <img src={logo} alt="Salama" className="h-16 w-auto mb-4" />
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Welcome back
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Sign in to your Salama account
-            </p>
+
+      {/* Brand panel */}
+      <div
+        className="hidden md:flex"
+        style={{
+          flex: "1 1 0", background: "#16140F", color: "#F7F4EC",
+          flexDirection: "column", justifyContent: "space-between",
+          padding: "48px 52px", position: "relative", overflow: "hidden",
+        }}
+      >
+        <img src={logo} alt="Salama" style={{ height: 34, width: "auto", filter: "brightness(0) invert(1)" }} />
+        <div style={{ maxWidth: 460 }}>
+          <h1 style={{ fontSize: 40, lineHeight: 1.12, fontWeight: 650, letterSpacing: "-.03em" }}>
+            Drive Qatar's roads with confidence.
+          </h1>
+          <p style={{ fontSize: 16, lineHeight: 1.6, color: "rgba(247,244,236,.66)", marginTop: 18, maxWidth: 420 }}>
+            Salama answers your driving, licensing and road-safety questions — and tells you exactly how much to trust every answer.
+          </p>
+          <div style={{ marginTop: 30, display: "flex", gap: 26, flexWrap: "wrap" }}>
+            {[["Official", "traffic sources"], ["Trust score", "on every answer"], ["العربية", "& English"]].map(([a, b], i) => (
+              <div key={i}>
+                <div style={{ fontSize: 17, fontWeight: 650, color: "#F2B705" }}>{a}</div>
+                <div style={{ fontSize: 12.5, color: "rgba(247,244,236,.55)", marginTop: 2 }}>{b}</div>
+              </div>
+            ))}
           </div>
+        </div>
+        <div className="road-line" style={{ width: "100%" }} />
+        <div style={{ position: "absolute", right: -120, top: -80, width: 360, height: 360, borderRadius: "50%", background: "radial-gradient(circle, rgba(242,183,5,.16), transparent 70%)", pointerEvents: "none" }} />
+      </div>
+
+      {/* Form panel */}
+      <div style={{ flex: "1 1 0", display: "flex", alignItems: "center", justifyContent: "center", padding: 28 }}>
+        <div className="fade-up" style={{ width: "100%", maxWidth: 380 }}>
+          <h2 style={{ fontSize: 26, fontWeight: 650, letterSpacing: "-.025em", color: "var(--ink)" }}>
+            Welcome back
+          </h2>
+          <p style={{ fontSize: 14.5, color: "var(--ink-2)", marginTop: 6 }}>
+            Sign in to continue.
+          </p>
 
           {error && (
-            <div className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <div style={{ marginTop: 16, padding: "11px 13px", borderRadius: 11, background: "var(--caution-bg)", border: "1px solid var(--caution-line)", fontSize: 13.5, color: "var(--caution)" }}>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-foreground" htmlFor="email">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
+          <form onSubmit={handleSubmit} style={{ marginTop: 26, display: "flex", flexDirection: "column", gap: 16 }}>
+            <AuthField
+              label="Email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+            <AuthField
+              label="Password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-foreground" htmlFor="password">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-
-            <Button type="submit" disabled={isLoading} className="w-full mt-1">
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in…
-                </>
-              ) : (
-                "Sign in"
-              )}
-            </Button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              style={{
+                marginTop: 6, height: 46, borderRadius: 11,
+                background: "var(--ink)", color: "var(--bg)",
+                fontSize: 15, fontWeight: 600, letterSpacing: "-.01em",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                transition: "opacity .15s", cursor: isLoading ? "not-allowed" : "pointer",
+                opacity: isLoading ? 0.7 : 1, border: "none",
+              }}
+            >
+              {isLoading ? <><Loader2 size={16} className="spin" /> Signing in…</> : "Sign in"}
+            </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <p style={{ marginTop: 22, fontSize: 14, color: "var(--ink-2)", textAlign: "center" }}>
             Don't have an account?{" "}
-            <Link
-              to="/signup"
-              className="font-medium text-primary underline-offset-4 hover:underline"
-            >
+            <Link to="/signup" style={{ fontWeight: 600, color: "var(--ink)", textUnderlineOffset: 3 }}>
               Sign up
             </Link>
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+function AuthField({ label, ...props }: { label: string } & InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{label}</span>
+      <input
+        {...props}
+        style={{
+          height: 44, borderRadius: 11,
+          border: "1px solid var(--line-2)", background: "var(--surface)",
+          padding: "0 14px", fontSize: 14.5, outline: "none",
+          transition: "border-color .15s, box-shadow .15s",
+          color: "var(--ink)",
+        }}
+        onFocus={(e) => {
+          e.target.style.borderColor = "var(--ink)";
+          e.target.style.boxShadow = "0 0 0 3px rgba(26,24,19,.07)";
+          props.onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          e.target.style.borderColor = "var(--line-2)";
+          e.target.style.boxShadow = "none";
+          props.onBlur?.(e);
+        }}
+      />
+    </label>
+  );
+}
+
+function IconBtn({ onClick, label, children }: { onClick: () => void; label: string; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      style={{
+        width: 36, height: 36, borderRadius: 9,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "var(--ink-2)", border: "1px solid var(--line)",
+        background: "var(--surface)", cursor: "pointer",
+        transition: "background .15s, border-color .15s",
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; e.currentTarget.style.borderColor = "var(--line-2)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = "var(--surface)"; e.currentTarget.style.borderColor = "var(--line)"; }}
+    >
+      {children}
+    </button>
   );
 }
