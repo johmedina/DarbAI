@@ -20,6 +20,7 @@ export interface HistoryMessage {
   total_entropy?: number;
   total_collision_entropy?: number;
   total_reliability_with_hidden_layers?: number;
+  images?: SignImage[];
   sign_images?: SignImage[];
   total_glu?: number;
   total_logtoku?: number;

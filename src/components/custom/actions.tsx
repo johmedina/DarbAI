@@ -48,7 +48,9 @@ export function MessageActions({
   }
 
   const totalReliability = message.total_reliability;
-  const genTime: number | null | undefined = (message as any).generation_time_seconds
+  const genTime: number | null | undefined = (message as any).generation_time_seconds != null
+    ? Number((message as any).generation_time_seconds)
+    : undefined
 
   const hasVersions   = versions.length > 1
   const totalVersions = versions.length

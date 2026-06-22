@@ -88,8 +88,11 @@ function sessionToMessages(
         total_reliability_with_hidden_layers: (m as any).total_reliability_with_hidden_layers ?? 0,
         total_glu:                            (m as any).total_glu ?? 0,
         total_logtoku:                        (m as any).total_logtoku ?? 0,
-        generation_time_seconds: m.generation_time_seconds,
-        images: m.sign_images,
+        generation_time_seconds: m.generation_time_seconds != null ? Number(m.generation_time_seconds) : null,
+        images: ((m as any).images ?? m.sign_images)?.map((img: SignImage) => ({
+          ...img,
+          resolvedUrl: imageUrlMap[img.url] ?? undefined,
+        })),
         token_data:                           (m as any).token_data ?? [],
         versions,
         activeVersionIdx:                     versions.length - 1,
@@ -155,9 +158,20 @@ export function Chat() {
       if (!token) return {};
       const map: Record<string, string> = {};
       for (const msg of session.messages) {
+        // Resolve user-uploaded image
         if (msg.image_url && !map[msg.image_url]) {
           const blobUrl = await toAuthenticatedBlobUrl(msg.image_url, token);
           if (blobUrl) map[msg.image_url] = blobUrl;
+        }
+        // Resolve AI response sign images
+        const signImgs = (msg as any).images ?? msg.sign_images;
+        if (signImgs?.length) {
+          for (const img of signImgs) {
+            if (img.url && !map[img.url]) {
+              const blobUrl = await toAuthenticatedBlobUrl(img.url, token);
+              if (blobUrl) map[img.url] = blobUrl;
+            }
+          }
         }
       }
       return map;
