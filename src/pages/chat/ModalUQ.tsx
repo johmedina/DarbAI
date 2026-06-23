@@ -483,7 +483,10 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
           </p>
 
           {/* Sources */}
+          
+          {/*
           <SourcesSection sources={ragSources} />
+        */}
         </div>
       </aside>
     </div>
