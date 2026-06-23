@@ -23,11 +23,11 @@ type TokenStat = {
 
 // ── Thresholds ────────────────────────────────────────────────────────────────
 // LogTokU++ (reliability_with_hidden_layers): lower = more uncertain
-const LOGTOKU_PP_THRESHOLD = -0.09;
+const LOGTOKU_PP_THRESHOLD = -0.1;
 // LogTokU  (logtoku per-token):               lower = more uncertain
 const LOGTOKU_THRESHOLD    = -0.5;
 // GLU:                                        lower (more negative) = more uncertain
-const GLU_THRESHOLD        = -0.05;
+const GLU_THRESHOLD        = -0.2;
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 const belowIsRed = (v: number, threshold: number): "red" | "green" | "black" => {

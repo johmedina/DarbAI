@@ -3,7 +3,7 @@ import { Copy, ThumbsUp, ThumbsDown, Check, RotateCcw, ChevronLeft, ChevronRight
 import { ChatMessageModel, ResponseVersion } from "../../interfaces/interfaces"
 import { OverlayTrigger, Tooltip } from "react-bootstrap"
 
-const RELIABILITY_THRESHOLD = -0.11;
+const RELIABILITY_THRESHOLD = -0.1;
 
 const RelRing = ({ value, size = 18, sw = 3, color }: { value: number; size?: number; sw?: number; color: string }) => {
   const r = (size - sw) / 2;
