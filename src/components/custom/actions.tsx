@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Copy, ThumbsUp, ThumbsDown, Check, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react"
 import { ChatMessageModel, ResponseVersion } from "../../interfaces/interfaces"
 import { OverlayTrigger, Tooltip } from "react-bootstrap"
+import { BookOpen } from "lucide-react"
 
 const RELIABILITY_THRESHOLD = -0.1;
 
@@ -21,6 +22,7 @@ const RelRing = ({ value, size = 18, sw = 3, color }: { value: number; size?: nu
 interface MessageActionsProps {
   message: ChatMessageModel
   setShowUQModal: (show: boolean) => void
+  setShowSourcesModal: (show: boolean) => void 
   onRegenerate?: () => void
   isRegenerating?: boolean
   versions?: ResponseVersion[]
@@ -31,6 +33,7 @@ interface MessageActionsProps {
 export function MessageActions({
   message,
   setShowUQModal,
+  setShowSourcesModal,
   onRegenerate,
   isRegenerating = false,
   versions = [],
@@ -205,6 +208,38 @@ export function MessageActions({
           </span>
         </button>
       )}
+
+      {/* Sources chip */}
+      {!isRegenerating && (message as any).rag_sources?.length > 0 && (
+        <button
+          onClick={() => setShowSourcesModal(true)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 7,
+            padding: "5px 11px 5px 9px", borderRadius: 99, marginLeft: 4,
+            background: "var(--surface-2)",
+            border: "1px solid var(--line)",
+            color: "var(--ink-2)", cursor: "pointer",
+            transition: "transform .15s, box-shadow .15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.boxShadow = "var(--shadow-sm)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+          onMouseLeave={e => { e.currentTarget.style.boxShadow = "none";             e.currentTarget.style.transform = "none"; }}
+        >
+          <BookOpen size={14} />
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-.01em" }}>
+            Sources
+          </span>
+          <span style={{
+            fontSize: 11, fontWeight: 500,
+            background: "var(--surface)", border: "1px solid var(--line)",
+            borderRadius: 99, padding: "1px 6px",
+            color: "var(--ink-3)",
+          }}>
+            {[...(new Set((message as any).rag_sources.flatMap((s: any) => s.pages)))].length} pages
+          </span>
+        </button>
+      )}
+
+
     </div>
   );
 }

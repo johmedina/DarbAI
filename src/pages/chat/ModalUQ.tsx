@@ -1,6 +1,6 @@
 import { FC } from 'react';
-import { ShieldCheck, X, Info } from 'lucide-react';
-import { ChatMessageModel, TokenData } from '../../interfaces/interfaces';
+import { ShieldCheck, X, Info, BookOpen } from 'lucide-react';
+import { ChatMessageModel, RagSource, TokenData } from '../../interfaces/interfaces';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 
 interface Props {
@@ -182,6 +182,78 @@ function TokenViz({
   );
 }
 
+// ── Sources section ───────────────────────────────────────────────────────────
+const SourcesSection = ({ sources }: { sources?: RagSource[] }) => {
+  if (!sources?.length) return null;
+  return (
+    <>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 7,
+        fontFamily: "var(--mono)", fontSize: 10.5, fontWeight: 600,
+        letterSpacing: ".06em", color: "var(--ink-3)",
+        marginBottom: 10, marginTop: 24,
+        textTransform: "uppercase" as const,
+      }}>
+        <BookOpen size={13} style={{ flexShrink: 0 }} />
+        Sources
+        <span style={{ fontWeight: 400, fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>
+          — retrieved from the driving guide
+        </span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {sources.map((src, i) => (
+          <div key={i} style={{
+            padding: "13px 15px", borderRadius: 12,
+            background: "var(--surface-2)", border: "1px solid var(--line)",
+          }}>
+            {/* Title + page badge row */}
+            <div style={{
+              display: "flex", justifyContent: "space-between",
+              alignItems: "flex-start", gap: 8, marginBottom: 8,
+            }}>
+              <span style={{
+                fontSize: 12.5, fontWeight: 650,
+                color: "var(--ink)", lineHeight: 1.4,
+              }}>
+                {src.title}
+              </span>
+              {src.pages?.length > 0 && (
+                <span style={{
+                  flexShrink: 0, fontSize: 11, fontFamily: "var(--mono)",
+                  color: "var(--ink-3)", background: "var(--surface)",
+                  border: "1px solid var(--line)", borderRadius: 6,
+                  padding: "2px 7px", whiteSpace: "nowrap",
+                }}>
+                  p.&nbsp;{src.pages.join(", ")}
+                </span>
+              )}
+            </div>
+            {/* Excerpt */}
+            <p style={{
+              fontSize: 12.5, color: "var(--ink-2)",
+              margin: 0, lineHeight: 1.65,
+              display: "-webkit-box",
+              WebkitLineClamp: 5,
+              WebkitBoxOrient: "vertical" as const,
+              overflow: "hidden",
+            }}>
+              {src.excerpt}
+            </p>
+            {/* Score */}
+            <div style={{
+              fontSize: 11, color: "var(--ink-3)",
+              marginTop: 7, fontFamily: "var(--mono)",
+            }}>
+              retrieval score: {src.score.toFixed(4)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+};
+
+
 // ── Main component ────────────────────────────────────────────────────────────
 const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
   if (!show) return null;
@@ -190,6 +262,8 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
   const totalLogtokuPP = (chatMessageResponse as any)?.total_reliability_with_hidden_layers as number | undefined;
   const totalLogtoku   = (chatMessageResponse as any)?.total_logtoku as number | undefined;
   const totalGLU       = (chatMessageResponse as any)?.total_glu    as number | undefined;
+  const ragSources     = (chatMessageResponse as any)?.rag_sources as RagSource[] | undefined;
+
 
   const reliable   = isReliable(totalLogtokuPP);
   const hasLogtokuPP = typeof totalLogtokuPP === "number" && Number.isFinite(totalLogtokuPP);
@@ -397,6 +471,8 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
             </>
           )}
 
+          
+
           {/* Footer */}
           <p style={{
             fontSize: 12, color: "var(--ink-3)", marginTop: 16,
@@ -405,6 +481,12 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
             <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
             Highlighted words are where the model was least certain. Salama always shows this so you can judge an answer before acting on it on the road.
           </p>
+
+          {/* Sources */}
+          
+          {/*
+          <SourcesSection sources={ragSources} />
+        */}
         </div>
       </aside>
     </div>

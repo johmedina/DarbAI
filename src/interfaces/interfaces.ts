@@ -123,6 +123,8 @@ export interface ChatModel {
     total_glu?: number
     total_logtoku?: number
     generation_time_seconds?: number | null
+    rag_sources?: RagSource[]
+    
 }
 
   export interface SignImage {
@@ -132,6 +134,14 @@ export interface ChatModel {
     page: number
     url: string
     resolvedUrl?: string
+  }
+
+  export interface RagSource {
+    title: string       // heading breadcrumb
+    pages: number[]     // page numbers in the driving guide
+    excerpt: string     // verbatim chunk text
+    score: number       // retrieval score
+    part:    string 
   }
       
   
@@ -177,6 +187,7 @@ export interface ChatModel {
     // ── versioning ──
     versions?: ResponseVersion[]          // all saved versions (v1 = original)
     activeVersionIdx?: number             // 0-based index into versions[]
+    rag_sources?: RagSource[]
   }
   
   export interface ChatMessageFileModel {

@@ -1,7 +1,3 @@
-/**
- * chat.tsx  —  full file with versioned regeneration
- */
-
 import { flushSync } from 'react-dom'
 import { ChatInput } from "@/components/custom/chatinput";
 import { PreviewMessage, ThinkingMessage } from "../../components/custom/message";
@@ -64,6 +60,7 @@ function sessionToMessages(
           total_glu:                            (m as any).total_glu ?? 0,
           total_logtoku:                        (m as any).total_logtoku ?? 0,
           generation_time_seconds:              m.generation_time_seconds,
+          rag_sources:                          (m as any).rag_sources ?? [],  // ← ADDED
         }]
 
     return [
@@ -94,6 +91,7 @@ function sessionToMessages(
           resolvedUrl: imageUrlMap[img.url] ?? undefined,
         })),
         token_data:                           (m as any).token_data ?? [],
+        rag_sources:                          (m as any).rag_sources ?? [],  // ← ADDED
         versions,
         activeVersionIdx:                     versions.length - 1,
       } as ChatMessageModel,
@@ -276,6 +274,7 @@ export function Chat() {
         total_reliability_with_hidden_layers: ver.total_reliability_with_hidden_layers,
         total_glu:                            ver.total_glu,
         total_logtoku:                        ver.total_logtoku,
+        rag_sources:                          (ver as any).rag_sources ?? [],  // ← ADDED
       }
       return updated
     })
@@ -394,6 +393,7 @@ export function Chat() {
               total_glu:                            event.total_glu ?? 0,
               total_logtoku:                        event.total_logtoku ?? 0,
               generation_time_seconds:              event.generation_time_seconds,
+              rag_sources:                          event.rag_sources ?? [],  // ← ADDED
             }
 
             setMessages((prev) => {
@@ -415,6 +415,7 @@ export function Chat() {
                 total_reliability_with_hidden_layers: newVersion.total_reliability_with_hidden_layers,
                 total_glu:                            newVersion.total_glu ?? 0,
                 total_logtoku:                        newVersion.total_logtoku ?? 0,
+                rag_sources:                          (newVersion as any).rag_sources ?? [],  // ← ADDED
               }
               return updated
             })
@@ -702,6 +703,7 @@ export function Chat() {
               total_glu:                            (event.total_glu as number) ?? 0,
               total_logtoku:                        (event.total_logtoku as number) ?? 0,
               generation_time_seconds:              (event.generation_time_seconds as number) ?? finalElapsed,
+              rag_sources:                          (event.rag_sources as any[]) ?? [],  // ← ADDED
             };
 
             const doneMsg: ChatMessageModel & { generation_time_seconds?: number } = {
@@ -718,6 +720,7 @@ export function Chat() {
               total_glu:                            v1.total_glu,
               total_logtoku:                        v1.total_logtoku,
               generation_time_seconds:              v1.generation_time_seconds,
+              rag_sources:                          (event.rag_sources as any[]) ?? [],  // ← ADDED
               is_streaming:                         false,
               versions:                             [v1],
               activeVersionIdx:                     0,

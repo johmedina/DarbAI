@@ -11,6 +11,7 @@ import {
 } from "../../interfaces/interfaces"
 import { MessageActions } from "@/components/custom/actions"
 import { ModalUQ } from "@/pages/chat/ModalUQ"
+import { ModalSources } from '@/pages/chat/ModalSources'
 
 interface PreviewMessageProps {
   message: ChatMessageModel
@@ -26,7 +27,7 @@ export const PreviewMessage = ({
   onVersionChange,
 }: PreviewMessageProps) => {
   const [showUQModal, setShowUQModal] = useState(false)
-
+  const [showSourcesModal, setShowSourcesModal] = useState(false)
   const isStreaming = (message as any).is_streaming
 
   const versions: ResponseVersion[] = message.versions ?? []
@@ -60,6 +61,7 @@ export const PreviewMessage = ({
     total_reliability_with_hidden_layers: displayTotalRWHL,
     total_glu:                            displayTotalGlu,
     total_logtoku:                        displayTotalLogtoku,
+    rag_sources: (activeVer as any)?.rag_sources ?? (message as any).rag_sources ?? [],
   }
 
   const isUser = message.role === ChatMessageRoleType.USER
@@ -164,6 +166,7 @@ export const PreviewMessage = ({
               <MessageActions
                 message={uqMessage as ChatMessageModel}
                 setShowUQModal={setShowUQModal}
+                setShowSourcesModal={setShowSourcesModal}
                 onRegenerate={onRegenerate}
                 isRegenerating={isRegenerating}
                 versions={versions}
@@ -180,6 +183,15 @@ export const PreviewMessage = ({
           chatMessageResponse={uqMessage as ChatMessageModel}
           show={showUQModal}
           handleClose={() => setShowUQModal(false)}
+        />
+      )}
+      {showSourcesModal && message.message_id && (
+        <ModalSources
+          chatId={message.chat_id}
+          messageId={message.message_id}
+          sources={(uqMessage as any).rag_sources ?? []}
+          show={showSourcesModal}
+          handleClose={() => setShowSourcesModal(false)}
         />
       )}
     </motion.div>
