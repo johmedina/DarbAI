@@ -88,6 +88,55 @@ export function MessageActions({
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 12, flexWrap: "wrap" }}>
 
+      {/* Sources chip */}
+{!isRegenerating && (message as any).rag_sources?.length > 0 && (
+  <div style={{ width: "100%", marginBottom: 6 }}>
+    <button
+      onClick={() => setShowSourcesModal(true)}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 7,
+        padding: "5px 11px 5px 9px",
+        borderRadius: 99,
+        background: "var(--surface-2)",
+        border: "1px solid var(--line)",
+        color: "var(--ink-2)",
+        cursor: "pointer",
+        transition: "transform .15s, box-shadow .15s",
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.boxShadow = "var(--shadow-sm)";
+        e.currentTarget.style.transform = "translateY(-1px)";
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.boxShadow = "none";
+        e.currentTarget.style.transform = "none";
+      }}
+    >
+      <BookOpen size={14} />
+      <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-.01em" }}>
+        Sources
+      </span>
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 500,
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          borderRadius: 99,
+          padding: "1px 6px",
+          color: "var(--ink-3)",
+        }}
+      >
+        {[...(new Set((message as any).rag_sources.flatMap((s: any) => s.pages)))].length} pages
+      </span>
+    </button>
+  </div>
+)}
+
+
+
       {/* Copy */}
       <button style={iconBtn} onClick={handleCopy} aria-label="Copy" disabled={isRegenerating}
         onMouseEnter={onHover} onMouseLeave={onUnhover}>
@@ -209,35 +258,7 @@ export function MessageActions({
         </button>
       )}
 
-      {/* Sources chip */}
-      {!isRegenerating && (message as any).rag_sources?.length > 0 && (
-        <button
-          onClick={() => setShowSourcesModal(true)}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 7,
-            padding: "5px 11px 5px 9px", borderRadius: 99, marginLeft: 4,
-            background: "var(--surface-2)",
-            border: "1px solid var(--line)",
-            color: "var(--ink-2)", cursor: "pointer",
-            transition: "transform .15s, box-shadow .15s",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.boxShadow = "var(--shadow-sm)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-          onMouseLeave={e => { e.currentTarget.style.boxShadow = "none";             e.currentTarget.style.transform = "none"; }}
-        >
-          <BookOpen size={14} />
-          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-.01em" }}>
-            Sources
-          </span>
-          <span style={{
-            fontSize: 11, fontWeight: 500,
-            background: "var(--surface)", border: "1px solid var(--line)",
-            borderRadius: 99, padding: "1px 6px",
-            color: "var(--ink-3)",
-          }}>
-            {[...(new Set((message as any).rag_sources.flatMap((s: any) => s.pages)))].length} pages
-          </span>
-        </button>
-      )}
+      
 
 
     </div>
