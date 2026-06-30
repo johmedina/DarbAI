@@ -1,8 +1,9 @@
 import { useState } from "react"
 import { Copy, ThumbsUp, ThumbsDown, Check, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react"
-import { ChatMessageModel, ResponseVersion } from "../../interfaces/interfaces"
+import { ChatMessageModel, ResponseVersion, Feedback, FeedbackType } from "../../interfaces/interfaces"
 import { OverlayTrigger, Tooltip } from "react-bootstrap"
 import { BookOpen } from "lucide-react"
+import { DislikeFeedbackModal } from "./dislike-feedback-modal"
 
 const RELIABILITY_THRESHOLD = -0.120;
 
@@ -28,6 +29,8 @@ interface MessageActionsProps {
   versions?: ResponseVersion[]
   activeVersionIdx?: number
   onVersionChange?: (idx: number) => void
+  feedback?: Feedback | null
+  onFeedback?: (type: FeedbackType, reason?: string, customReason?: string) => void
 }
 
 export function MessageActions({
@@ -39,10 +42,13 @@ export function MessageActions({
   versions = [],
   activeVersionIdx = 0,
   onVersionChange,
+  feedback = null,
+  onFeedback,
 }: MessageActionsProps) {
-  const [copied,   setCopied]   = useState(false)
-  const [liked,    setLiked]    = useState(false)
-  const [disliked, setDisliked] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [showDislikeModal, setShowDislikeModal] = useState(false)
+  const liked    = feedback?.feedback_type === FeedbackType.LIKE
+  const disliked = feedback?.feedback_type === FeedbackType.DISLIKE
 
   const handleCopy = () => {
     navigator.clipboard.writeText((message as any).response ?? message.message)
@@ -145,27 +151,38 @@ export function MessageActions({
           : <Copy size={15} />}
       </button>
 
-      {/* Thumbs up */}
+{/* Thumbs up */}
       <button
         style={{ ...iconBtn, color: liked ? "var(--ink)" : "var(--ink-3)" }}
-        onClick={() => { setLiked(!liked); setDisliked(false); }}
+        onClick={() => onFeedback?.(FeedbackType.LIKE)}
         aria-label="Helpful"
         disabled={isRegenerating}
         onMouseEnter={onHover} onMouseLeave={onUnhover}
       >
-        <ThumbsUp size={15} />
+        <ThumbsUp size={15} fill={liked ? "var(--ink)" : "none"} />
       </button>
 
       {/* Thumbs down */}
       <button
         style={{ ...iconBtn, color: disliked ? "var(--ink)" : "var(--ink-3)" }}
-        onClick={() => { setDisliked(!disliked); setLiked(false); }}
+        onClick={() => setShowDislikeModal(true)}
         aria-label="Not helpful"
         disabled={isRegenerating}
         onMouseEnter={onHover} onMouseLeave={onUnhover}
       >
-        <ThumbsDown size={15} />
+        <ThumbsDown size={15} fill={disliked ? "var(--ink)" : "none"} />
       </button>
+
+      {showDislikeModal && (
+        <DislikeFeedbackModal
+          show={showDislikeModal}
+          onClose={() => setShowDislikeModal(false)}
+          onSubmit={(reason, customReason) => {
+            onFeedback?.(FeedbackType.DISLIKE, reason, customReason)
+            setShowDislikeModal(false)
+          }}
+        />
+      )}
 
       {/* Regenerate */}
       {onRegenerate && (

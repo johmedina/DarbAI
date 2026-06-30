@@ -11,6 +11,7 @@ import {
   ResponseVersion,  
   SignImage,
   TokenData,
+  FeedbackType,
 } from "../../interfaces/interfaces";
 import { Overview } from "@/components/custom/overview";
 import { Header } from "@/components/custom/header";
@@ -61,6 +62,7 @@ function sessionToMessages(
           total_logtoku:                        (m as any).total_logtoku ?? 0,
           generation_time_seconds:              m.generation_time_seconds,
           rag_sources:                          (m as any).rag_sources ?? [],  // ← ADDED
+          feedback:                             (m as any).feedback ?? null,   // ← ADDED
         }]
 
     return [
@@ -218,6 +220,34 @@ export function Chat() {
       }
     })();
   }, [urlChatId, token, navigate, resolveSessionImages]);
+
+  async function handleFeedback(
+    messageId: string,
+    versionNum: number,
+    type: FeedbackType,
+    reason?: string,
+    customReason?: string
+  ) {
+    try {
+      await apiClient.post(
+        `/chats/${selectedChatId}/messages/${messageId}/feedback`,
+        { feedback_type: type, version_num: versionNum, reason, custom_reason: customReason },
+        token
+      );
+      setMessages(prev => prev.map(m => {
+        if (m.message_id !== messageId) return m;
+        const versions = (m.versions ?? []).map(v =>
+          v.version_num === versionNum
+            ? { ...v, feedback: { feedback_type: type, reason, custom_reason: customReason } }
+            : v
+        );
+        return { ...m, versions };
+      }));
+      toast.success("Thanks for your feedback!");
+    } catch {
+      toast.error("Couldn't save feedback, please try again.");
+    }
+  }
 
   // ── Sidebar handlers ──────────────────────────────────────────────────────
   function handleNewChat() {
@@ -925,6 +955,7 @@ export function Chat() {
                   ? (vIdx) => handleVersionChange(i, vIdx)
                   : undefined
               }
+              onFeedback={handleFeedback}
             />
           ))}
           {isLoading && <ThinkingMessage elapsedSeconds={elapsedSeconds} />}

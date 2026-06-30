@@ -7,6 +7,7 @@ import { Markdown } from "./markdown"
 import {
   ChatMessageModel,
   ChatMessageRoleType,
+  FeedbackType,
   ResponseVersion,
 } from "../../interfaces/interfaces"
 import { MessageActions } from "@/components/custom/actions"
@@ -16,6 +17,15 @@ import { ModalSources } from '@/pages/chat/ModalSources'
 interface PreviewMessageProps {
   message: ChatMessageModel
   onRegenerate?: () => void
+
+  onFeedback?: (
+    messageId: string,
+    versionNum: number,
+    type: FeedbackType,
+    reason?: string,
+    customReason?: string
+  ) => void;
+  
   isRegenerating?: boolean
   onVersionChange?: (idx: number) => void
 }
@@ -25,6 +35,7 @@ export const PreviewMessage = ({
   onRegenerate,
   isRegenerating = false,
   onVersionChange,
+  onFeedback,
 }: PreviewMessageProps) => {
   const [showUQModal, setShowUQModal] = useState(false)
   const [showSourcesModal, setShowSourcesModal] = useState(false)
@@ -172,6 +183,10 @@ export const PreviewMessage = ({
                 versions={versions}
                 activeVersionIdx={activeIdx}
                 onVersionChange={onVersionChange}
+                feedback={activeVer?.feedback}
+                onFeedback={(type, reason, customReason) =>
+                  onFeedback?.(message.message_id!, activeVer?.version_num ?? 1, type, reason, customReason)
+                }
               />
             )}
           </div>
