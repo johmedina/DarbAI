@@ -4,7 +4,7 @@ import { ChatMessageModel, ResponseVersion } from "../../interfaces/interfaces"
 import { OverlayTrigger, Tooltip } from "react-bootstrap"
 import { BookOpen } from "lucide-react"
 
-const RELIABILITY_THRESHOLD = -0.1;
+const RELIABILITY_THRESHOLD = -0.120;
 
 const RelRing = ({ value, size = 18, sw = 3, color }: { value: number; size?: number; sw?: number; color: string }) => {
   const r = (size - sw) / 2;
@@ -50,7 +50,7 @@ export function MessageActions({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const totalReliability = message.total_reliability;
+  const totalReliability = message.total_glu;
   const genTime: number | null | undefined = (message as any).generation_time_seconds != null
     ? Number((message as any).generation_time_seconds)
     : undefined

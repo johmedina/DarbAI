@@ -80,7 +80,7 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
         style={{
           position: "absolute", inset: 0,
           background: "rgba(26,24,19,.42)",
-          backdropFilter: "blur(2px)",
+          backdropFilter: "blur(1px)",
         }}
       />
 

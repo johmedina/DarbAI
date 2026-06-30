@@ -126,7 +126,7 @@ const UQPanel = ({ data, onClose }) => {
           </div>
           <div style={{ padding: "15px 16px", borderRadius: 12, background: "var(--surface-2)", border: "1px solid var(--line)" }}>
             <div className="lat" style={{ fontFamily: "var(--mono)", fontSize: 10.5, fontWeight: 600, letterSpacing: ".06em", color: "var(--ink-3)", marginBottom: 10, direction: "ltr", textAlign: rtl ? "right" : "left" }}>
-              LogTokU++ ANALYSIS
+              Coletoku ANALYSIS
             </div>
             <TokenMap tokens={data.tokens} />
           </div>

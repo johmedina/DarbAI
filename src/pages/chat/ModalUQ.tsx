@@ -1,6 +1,6 @@
 import { FC } from 'react';
-import { ShieldCheck, X, Info, BookOpen } from 'lucide-react';
-import { ChatMessageModel, RagSource, TokenData } from '../../interfaces/interfaces';
+import { ShieldCheck, X, Info } from 'lucide-react';
+import { ChatMessageModel } from '../../interfaces/interfaces';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 
 interface Props {
@@ -22,12 +22,12 @@ type TokenStat = {
 };
 
 // ── Thresholds ────────────────────────────────────────────────────────────────
-// LogTokU++ (reliability_with_hidden_layers): lower = more uncertain
-const LOGTOKU_PP_THRESHOLD = -0.1;
+// Coletoku (reliability_with_hidden_layers): lower = more uncertain
+const COLETOKU_THRESHOLD = -0.088;
 // LogTokU  (logtoku per-token):               lower = more uncertain
-const LOGTOKU_THRESHOLD    = -0.5;
+const LOGTOKU_THRESHOLD    = -0.293;
 // GLU:                                        lower (more negative) = more uncertain
-const GLU_THRESHOLD        = -0.2;
+const GLU_THRESHOLD        = -0.120;
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 const belowIsRed = (v: number, threshold: number): "red" | "green" | "black" => {
@@ -36,8 +36,8 @@ const belowIsRed = (v: number, threshold: number): "red" | "green" | "black" => 
   return "black";
 };
 
-const logtokuPPColor = (t: TokenStat): "red" | "green" | "black" =>
-  belowIsRed(t.reliability_with_hidden_layers, LOGTOKU_PP_THRESHOLD);
+const coletokuColor = (t: TokenStat): "red" | "green" | "black" =>
+  belowIsRed(t.reliability_with_hidden_layers, COLETOKU_THRESHOLD);
 
 const logtokuColor = (t: TokenStat): "red" | "green" | "black" =>
   belowIsRed(t.logtoku, LOGTOKU_THRESHOLD);
@@ -51,9 +51,17 @@ const confidenceLabel = (v: number, threshold: number) =>
 const confidenceColor = (v: number, threshold: number) =>
   v < threshold ? "var(--caution)" : "var(--reliable)";
 
-// Overall verdict uses LogTokU++ as primary signal
-const isReliable = (totalLogtokuPP: number | undefined) =>
-  totalLogtokuPP == null || totalLogtokuPP > LOGTOKU_PP_THRESHOLD;
+// Normalise a signed uncertainty score into a [0,1] reliability fraction.
+// Anchored so the metric's threshold maps to 50% (same mapping as the ring).
+const reliabilityFraction = (v: number, threshold: number) =>
+  Math.max(0, Math.min(1, 1 + v / Math.abs(threshold * 2)));
+
+const reliabilityPct = (v: number, threshold: number) =>
+  Math.round(reliabilityFraction(v, threshold) * 100);
+
+// Overall verdict uses GLU as primary signal
+const isReliable = (totalGLU: number | undefined) =>
+  totalGLU == null || totalGLU > GLU_THRESHOLD;
 
 // ── Ring chart ────────────────────────────────────────────────────────────────
 const RelRing = ({
@@ -80,37 +88,54 @@ const RelRing = ({
 
 // ── Metric card ───────────────────────────────────────────────────────────────
 const MetricCard = ({
-  label, hint, value, threshold,
+  label, sublabel, hint, value, threshold,
 }: {
-  label: string; hint: string; value: number | undefined; threshold?: number;
+  label: string; sublabel?: string; hint: string; value: number | undefined; threshold?: number;
 }) => {
   const hasThreshold = threshold !== undefined && typeof value === "number" && Number.isFinite(value);
   return (
     <div style={{
       flex: 1, minWidth: 0, padding: "14px 15px", borderRadius: 12,
       background: "var(--surface-2)", border: "1px solid var(--line)",
+      display: "flex", flexDirection: "column",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 9 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
         <span style={{
           fontSize: 10.5, fontWeight: 700, letterSpacing: ".05em",
           textTransform: "uppercase" as const, color: "var(--ink-3)",
         }}>
           {label}
         </span>
-        <span title={hint} style={{ color: "var(--ink-3)", display: "flex", cursor: "help" }}>
-          <Info size={13} />
-        </span>
+        <OverlayTrigger
+          placement="bottom"
+          overlay={
+            <Tooltip id={`uq-metric-tip-${label}`}>
+              <div style={{ fontSize: 12, textAlign: "left", maxWidth: 400 }}>{hint}</div>
+            </Tooltip>
+          }
+        >
+          <span style={{ color: "var(--ink-3)", display: "flex", cursor: "help" }}>
+            <Info size={13} />
+          </span>
+        </OverlayTrigger>
+      </div>
+      {/* Fixed-height subtitle row keeps the value below it aligned across cards */}
+      <div style={{
+        fontSize: 10.5, color: "var(--ink-3)", lineHeight: 1.35,
+        minHeight: "2.7em", marginBottom: 9,
+      }}>
+        {sublabel}
       </div>
       <div style={{
         fontFamily: "var(--mono)", fontSize: 22, fontWeight: 600,
-        letterSpacing: "-.02em",
+        letterSpacing: "-.02em", marginTop: "auto",
         color: hasThreshold ? confidenceColor(value!, threshold!) : "var(--ink)",
       }}>
-        {fmt(value)}
+        {hasThreshold ? `${reliabilityPct(value!, threshold!)}% reliable` : fmt(value)}
       </div>
       {hasThreshold && (
         <div style={{ fontSize: 11, marginTop: 4, color: confidenceColor(value!, threshold!) }}>
-          {confidenceLabel(value!, threshold!)}
+          {confidenceLabel(value!, threshold!)} · raw {fmt(value)}
         </div>
       )}
     </div>
@@ -182,94 +207,22 @@ function TokenViz({
   );
 }
 
-// ── Sources section ───────────────────────────────────────────────────────────
-const SourcesSection = ({ sources }: { sources?: RagSource[] }) => {
-  if (!sources?.length) return null;
-  return (
-    <>
-      <div style={{
-        display: "flex", alignItems: "center", gap: 7,
-        fontFamily: "var(--mono)", fontSize: 10.5, fontWeight: 600,
-        letterSpacing: ".06em", color: "var(--ink-3)",
-        marginBottom: 10, marginTop: 24,
-        textTransform: "uppercase" as const,
-      }}>
-        <BookOpen size={13} style={{ flexShrink: 0 }} />
-        Sources
-        <span style={{ fontWeight: 400, fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>
-          — retrieved from the driving guide
-        </span>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {sources.map((src, i) => (
-          <div key={i} style={{
-            padding: "13px 15px", borderRadius: 12,
-            background: "var(--surface-2)", border: "1px solid var(--line)",
-          }}>
-            {/* Title + page badge row */}
-            <div style={{
-              display: "flex", justifyContent: "space-between",
-              alignItems: "flex-start", gap: 8, marginBottom: 8,
-            }}>
-              <span style={{
-                fontSize: 12.5, fontWeight: 650,
-                color: "var(--ink)", lineHeight: 1.4,
-              }}>
-                {src.title}
-              </span>
-              {src.pages?.length > 0 && (
-                <span style={{
-                  flexShrink: 0, fontSize: 11, fontFamily: "var(--mono)",
-                  color: "var(--ink-3)", background: "var(--surface)",
-                  border: "1px solid var(--line)", borderRadius: 6,
-                  padding: "2px 7px", whiteSpace: "nowrap",
-                }}>
-                  p.&nbsp;{src.pages.join(", ")}
-                </span>
-              )}
-            </div>
-            {/* Excerpt */}
-            <p style={{
-              fontSize: 12.5, color: "var(--ink-2)",
-              margin: 0, lineHeight: 1.65,
-              display: "-webkit-box",
-              WebkitLineClamp: 5,
-              WebkitBoxOrient: "vertical" as const,
-              overflow: "hidden",
-            }}>
-              {src.excerpt}
-            </p>
-            {/* Score */}
-            <div style={{
-              fontSize: 11, color: "var(--ink-3)",
-              marginTop: 7, fontFamily: "var(--mono)",
-            }}>
-              retrieval score: {src.score.toFixed(4)}
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-};
-
-
 // ── Main component ────────────────────────────────────────────────────────────
 const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
   if (!show) return null;
 
   const tokenData      = (chatMessageResponse as any)?.token_data as TokenStat[] | undefined;
-  const totalLogtokuPP = (chatMessageResponse as any)?.total_reliability_with_hidden_layers as number | undefined;
+  const totalColetoku = (chatMessageResponse as any)?.total_reliability_with_hidden_layers as number | undefined;
   const totalLogtoku   = (chatMessageResponse as any)?.total_logtoku as number | undefined;
   const totalGLU       = (chatMessageResponse as any)?.total_glu    as number | undefined;
-  const ragSources     = (chatMessageResponse as any)?.rag_sources as RagSource[] | undefined;
 
 
-  const reliable   = isReliable(totalLogtokuPP);
-  const hasLogtokuPP = typeof totalLogtokuPP === "number" && Number.isFinite(totalLogtokuPP);
-  // Confidence ring: normalise LogTokU++ into [0,1] for display
-  const confidence = hasLogtokuPP
-    ? Math.max(0, Math.min(1, 1 + totalLogtokuPP! / Math.abs(LOGTOKU_PP_THRESHOLD * 2)))
+  const reliable   = isReliable(totalGLU);
+  const hasColetoku = typeof totalColetoku === "number" && Number.isFinite(totalColetoku);
+  const hasGLU     = typeof totalGLU === "number" && Number.isFinite(totalGLU);
+  // Confidence ring: normalise GLU into [0,1] for display
+  const confidence = hasGLU
+    ? Math.max(0, Math.min(1, 1 + totalGLU! / Math.abs(GLU_THRESHOLD * 2)))
     : 0;
 
   const color = reliable ? "var(--reliable)" : "var(--caution)";
@@ -286,7 +239,7 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
         style={{
           position: "absolute", inset: 0,
           background: "rgba(26,24,19,.42)",
-          backdropFilter: "blur(2px)",
+          backdropFilter: "blur(1px)",
         }}
       />
 
@@ -378,28 +331,31 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
 
           {/* ── Metric cards ─────────────────────────────────────────────── */}
           <div style={{ display: "flex", gap: 10, marginBottom: 22, flexWrap: "wrap" }}>
-            {hasLogtokuPP && (
+            {hasGLU && (
               <MetricCard
-                label="LogTokU++"
-                hint="Worst-k mean of the hidden-layer-augmented reliability signal: combines AU×EU with late-layer top-1 probability, argmax agreement, and entropy. Lower (more negative) = more uncertain."
-                value={totalLogtokuPP}
-                threshold={LOGTOKU_PP_THRESHOLD}
+                label="GLU"
+                sublabel="Global–Local Uncertainty"
+                hint="GLU checks the model's confidence in two ways at once: how much it hesitated word-by-word as it wrote the answer (local), and how scrambled or disorganized its internal train of thought looked while doing so (global). It then combines them, so a moment of word-level doubt counts for more when the model's internal state also looks messy — giving a single, more trustworthy confidence score."
+                value={totalGLU}
+                threshold={GLU_THRESHOLD}
+              />
+            )}
+            {hasColetoku && (
+              <MetricCard
+                label="Coletoku"
+                sublabel="Collision-Entropy Token Uncertainty"
+                hint="ColETokU measures how spread out the model's bets were across many possible next words instead of being concentrated on one clear choice. It does this by asking, 'if I drew two answers at random, how likely are they to match?' — when a match is unlikely, the model was hedging across lots of options, which signals uncertainty."
+                value={totalColetoku}
+                threshold={COLETOKU_THRESHOLD}
               />
             )}
             {typeof totalLogtoku === "number" && Number.isFinite(totalLogtoku) && (
               <MetricCard
                 label="LogTokU"
-                hint="Worst-k mean of -(AU × EU). Pure logit-level uncertainty — aleatoric × epistemic. Lower (more negative) = more uncertain."
+                sublabel="Logit-space Token Uncertainty"
+                hint="LogTokU reads the model's raw internal scores (before they're turned into final probabilities) as a kind of 'evidence tally' and separates two different reasons it might be unsure: the question genuinely has several good answers, versus the model simply doesn't know enough. So it tells you not just how uncertain the model is, but why."
                 value={totalLogtoku}
                 threshold={LOGTOKU_THRESHOLD}
-              />
-            )}
-            {typeof totalGLU === "number" && Number.isFinite(totalGLU) && (
-              <MetricCard
-                label="GLU"
-                hint="Geometry-aware Language Uncertainty = (1 + S̃) × she_R_mean. Combines matrix Rényi entropy of hidden states with Shannon-EU token reliability. Lower (more negative) = more uncertain."
-                value={totalGLU}
-                threshold={GLU_THRESHOLD}
               />
             )}
           </div>
@@ -417,7 +373,7 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
                   fontSize: 12.5, fontWeight: 700, letterSpacing: ".02em",
                   textTransform: "uppercase", color: "var(--ink-2)", margin: 0,
                 }}>
-                  Word-level analysis
+                  Token-level analysis
                 </h3>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 10, fontSize: 11.5, color: "var(--ink-2)" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -431,18 +387,18 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
                 </span>
               </div>
 
-              {/* LogTokU++ token view */}
+              {/* Coletoku token view */}
               <TokenViz
-                heading="LogTokU++"
-                subheading="— hidden-layer reliability (red = uncertain)"
+                heading="ColETokU"
+                subheading="— AU = collision entropy, EU = Dirichlet evidence, reliability = -(AU x EU)"
                 tokenData={tokenData}
-                colorFn={logtokuPPColor}
+                colorFn={coletokuColor}
                 tooltipFn={(t) => (
                   <div style={{ fontSize: 12 }}>
                     <div><strong>AU:</strong> {fmt(t.au)}</div>
                     <div><strong>EU:</strong> {fmt(t.eu)}</div>
                     <div><strong>LogTokU:</strong> {fmt(t.logtoku)}</div>
-                    <div><strong>LogTokU++:</strong> {fmt(t.reliability_with_hidden_layers)}</div>
+                    <div><strong>Coletoku:</strong> {fmt(t.reliability_with_hidden_layers)}</div>
                     <div><strong>Late top-1 prob:</strong> {fmt((t as any).late_mean_top1_prob)}</div>
                     <div><strong>Late agreement:</strong> {fmt((t as any).late_agreement_rate)}</div>
                     <div><strong>Late entropy:</strong> {fmt((t as any).late_mean_entropy)}</div>
@@ -454,7 +410,7 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
               {/* LogTokU token view */}
               <TokenViz
                 heading="LogTokU"
-                subheading="— pure logit-level uncertainty -(AU × EU) (red = uncertain)"
+                subheading="— pure logit-level uncertainty -(AU × EU) from Ma et al. (2025)"
                 tokenData={tokenData}
                 colorFn={logtokuColor}
                 tooltipFn={(t) => (
@@ -481,12 +437,6 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
             <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
             Highlighted words are where the model was least certain. Salama always shows this so you can judge an answer before acting on it on the road.
           </p>
-
-          {/* Sources */}
-          
-          {/*
-          <SourcesSection sources={ragSources} />
-        */}
         </div>
       </aside>
     </div>
