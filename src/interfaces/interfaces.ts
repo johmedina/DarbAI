@@ -109,6 +109,27 @@ export interface ChatModel {
     reliability_with_hidden_layers?: number
   }
 
+  export enum FeedbackType { 
+    LIKE = "LIKE", 
+    DISLIKE = "DISLIKE" 
+  }
+
+  export interface Feedback {
+    feedback_type: FeedbackType
+    reason?: string | null
+    custom_reason?: string | null
+  }
+
+  export const DISLIKE_REASONS = [
+   "Incorrect answer",
+    "Didn't answer my question",
+    "Missing information",
+    "Hallucinated information",
+    "Wrong source/reference",
+    "Bad image/sign recognition",
+    "Other",
+  ]
+
   // ── Response versioning ───────────────────────────────────────────────────────
 
   /** One version of an assistant response (original = version_num 1). */ 
@@ -124,6 +145,7 @@ export interface ChatModel {
     total_logtoku?: number
     generation_time_seconds?: number | null
     rag_sources?: RagSource[]
+    feedback?: Feedback | null
     
 }
 
@@ -197,6 +219,7 @@ export interface ChatModel {
     url?: string
   }
   
+
   
   export const FEEDBACK_CATEGORIES = [
     "lacked_factual_accuracy",
