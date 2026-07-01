@@ -706,7 +706,7 @@ export function Chat() {
                 updated[idx] = { ...updated[idx], message: streamText };
                 return updated;
               });
-              setIsLoading(false);
+              // setIsLoading(false);
             } else {
               setMessages((prev) => {
                 const idx = streamingIdxRef.current;

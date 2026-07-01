@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Modal, Button, Form } from "react-bootstrap"
 import { DISLIKE_REASONS } from "../../interfaces/interfaces"
+import "./dislike-feedback-modal.css";
 
 interface DislikeFeedbackModalProps {
   show: boolean
@@ -29,17 +30,26 @@ export function DislikeFeedbackModal({ show, onClose, onSubmit }: DislikeFeedbac
       <Modal.Body>
         <Form>
           {DISLIKE_REASONS.map((reason) => (
-            <Form.Check
-              key={reason}
-              type="radio"
-              id={`dislike-reason-${reason}`}
-              name="dislike-reason"
-              label={reason}
-              checked={selected === reason}
-              onChange={() => setSelected(reason)}
-              className="mb-2"
-            />
-          ))}
+  <div className="form-check mb-2" key={reason}>
+    <input
+      className="form-check-input"
+      type="radio"
+      id={`dislike-reason-${reason}`}
+      name="dislike-reason"
+      checked={selected === reason}
+      onChange={() => setSelected(reason)}
+      style={{
+        accentColor: "#F2B705",
+      }}
+    />
+    <label
+      className="form-check-label"
+      htmlFor={`dislike-reason-${reason}`}
+    >
+      {reason}
+    </label>
+  </div>
+))}
           {isOther && (
             <Form.Control
               as="textarea"
@@ -54,7 +64,17 @@ export function DislikeFeedbackModal({ show, onClose, onSubmit }: DislikeFeedbac
       </Modal.Body>
       <Modal.Footer>
         <Button variant="outline-secondary" onClick={onClose}>Cancel</Button>
-        <Button variant="primary" disabled={!selected} onClick={handleSubmit}>Submit</Button>
+        <Button
+  onClick={handleSubmit}
+  disabled={!selected}
+  style={{
+    backgroundColor: "#F2B705",
+    borderColor: "#F2B705",
+    color: "#000"
+  }}
+>
+  Submit
+</Button>
       </Modal.Footer>
     </Modal>
   )
