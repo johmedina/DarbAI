@@ -298,3 +298,4 @@
   .menuitem { transition: background .12s; }
   .menuitem:hover { background: var(--surface-2); }
   @media (hover: none) { .histrow .dots { opacity: 1; } }
+
