@@ -25,7 +25,7 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
   const [pageIdx, setPageIdx] = useState(0)
-  const [imgBlobUrls, setImgBlobUrls] = useState<Record<string, string>>({})
+  
 
   useEffect(() => {
     if (!show || !token) return
@@ -33,30 +33,14 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
     setError(null)
     setPageIdx(0)
     setPages([])
-    setImgBlobUrls({})
 
     fetch(`${API_BASE}/chats/${chatId}/messages/${messageId}/source-pages`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
-      .then(async data => {
-        const fetchedPages: SourcePage[] = data.data ?? []
-        setPages(fetchedPages)
-
-        // Pre-fetch all page images through the auth proxy
-        const urls: Record<string, string> = {}
-        await Promise.all(fetchedPages.map(async (p) => {
-          try {
-            const res = await fetch(`${API_BASE}${p.image_url}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-            if (res.ok) {
-              const blob = await res.blob()
-              urls[p.image_url] = URL.createObjectURL(blob)
-            }
-          } catch {}
-        }))
-        setImgBlobUrls(urls)
+      .then(data => {
+        // image_url is now a direct Azure SAS URL — no proxy fetch needed
+        setPages(data.data ?? [])
       })
       .catch(e => setError(String(e)))
       .finally(() => setLoading(false))
@@ -68,7 +52,8 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
   const total   = pages.length
 
   // Collect all unique page numbers for the summary chips
-  const allPageNums = [...new Set(sources.flatMap(s => s.pages))].sort((a, b) => a - b)
+  // Preserve retrieval-score order (sources already sorted score DESC by backend)
+  const allPageNums = sources.flatMap(s => s.pages).filter((p, i, arr) => arr.indexOf(p) === i)
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 60 }}>
@@ -257,7 +242,7 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
                 position: "relative",
               }}>
                 <img
-                  src={imgBlobUrls[current.image_url] ?? ""}
+                  src={current.image_url}
                   alt={`Page ${current.page_num}`}
                   style={{ width: "100%", display: "block" }}
                 />
@@ -328,7 +313,7 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
                       }}
                     >
                       <img
-                        src={imgBlobUrls[p.image_url] ?? ""}
+                        src={p.image_url}
                         alt={`p.${p.page_num}`}
                         style={{ width: "100%", display: "block" }}
                       />
