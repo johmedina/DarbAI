@@ -8,7 +8,7 @@ import {
   ChatMessageGenerationType,
   ChatMessageModel,
   ChatMessageRoleType,
-  ResponseVersion,  
+  ResponseVersion,
   SignImage,
   TokenData,
   FeedbackType,
@@ -51,32 +51,32 @@ function sessionToMessages(
     const versions: ResponseVersion[] = rawVersions.length > 0
       ? rawVersions
       : [{
-          version_num:                          1,
-          message:                              m.response,
-          token_data:                           (m as any).token_data ?? [],
-          total_reliability:                    m.total_reliability,
-          total_entropy:                        m.total_entropy,
-          total_collision_entropy:              m.total_collision_entropy,
-          total_reliability_with_hidden_layers: (m as any).total_reliability_with_hidden_layers ?? 0,
-          total_glu:                            (m as any).total_glu ?? 0,
-          total_logtoku:                        (m as any).total_logtoku ?? 0,
-          generation_time_seconds:              m.generation_time_seconds,
-          rag_sources:                          (m as any).rag_sources ?? [],  // ← ADDED
-          feedback:                             (m as any).feedback ?? null,   // ← ADDED
-        }]
+        version_num: 1,
+        message: m.response,
+        token_data: (m as any).token_data ?? [],
+        total_reliability: m.total_reliability,
+        total_entropy: m.total_entropy,
+        total_collision_entropy: m.total_collision_entropy,
+        total_reliability_with_hidden_layers: (m as any).total_reliability_with_hidden_layers ?? 0,
+        total_glu: (m as any).total_glu ?? 0,
+        total_logtoku: (m as any).total_logtoku ?? 0,
+        generation_time_seconds: m.generation_time_seconds,
+        rag_sources: (m as any).rag_sources ?? [],  // ← ADDED
+        feedback: (m as any).feedback ?? null,   // ← ADDED
+      }]
 
     return [
       {
-        message:    m.question,
-        role:       ChatMessageRoleType.USER,
-        chat_id:    session.chat_id,
+        message: m.question,
+        role: ChatMessageRoleType.USER,
+        chat_id: session.chat_id,
         generation_type: objectUrl
           ? ChatMessageGenerationType.IMAGE_UNDERSTANDING
           : ChatMessageGenerationType.TEXT,
         ...(objectUrl ? { chat_uploaded_files: [{ objectUrl }] } : {}),
       } as ChatMessageModel,
       {
-        message_id:                           (m as any).message_id,
+        message_id: (m as any).message_id,
         message: m.response,
         role: ChatMessageRoleType.ASSISTANT,
         chat_id: session.chat_id,
@@ -85,17 +85,17 @@ function sessionToMessages(
         total_entropy: m.total_entropy,
         total_collision_entropy: m.total_collision_entropy,
         total_reliability_with_hidden_layers: (m as any).total_reliability_with_hidden_layers ?? 0,
-        total_glu:                            (m as any).total_glu ?? 0,
-        total_logtoku:                        (m as any).total_logtoku ?? 0,
+        total_glu: (m as any).total_glu ?? 0,
+        total_logtoku: (m as any).total_logtoku ?? 0,
         generation_time_seconds: m.generation_time_seconds != null ? Number(m.generation_time_seconds) : null,
         images: ((m as any).images ?? m.sign_images)?.map((img: SignImage) => ({
           ...img,
           resolvedUrl: imageUrlMap[img.url] ?? undefined,
         })),
-        token_data:                           (m as any).token_data ?? [],
-        rag_sources:                          (m as any).rag_sources ?? [],  // ← ADDED
+        token_data: (m as any).token_data ?? [],
+        rag_sources: (m as any).rag_sources ?? [],  // ← ADDED
         versions,
-        activeVersionIdx:                     versions.length - 1,
+        activeVersionIdx: versions.length - 1,
       } as ChatMessageModel,
     ];
   });
@@ -109,8 +109,8 @@ export function Chat() {
   const [messagesContainerRef, messagesEndRef] = useScrollToBottom<HTMLDivElement>();
 
   // Sidebar
-  const [sidebarOpen,    setSidebarOpen]    = useState(false);
-  const [chatSessions,   setChatSessions]   = useState<ChatSession[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
   // Chat mode — persisted to localStorage
@@ -118,10 +118,10 @@ export function Chat() {
   useEffect(() => { localStorage.setItem("salama-mode", mode); }, [mode]);
 
   // Current conversation
-  const [messages, setMessages]   = useState<ChatMessageModel[]>([]);
-  const [question, setQuestion]   = useState("");
+  const [messages, setMessages] = useState<ChatMessageModel[]>([]);
+  const [question, setQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [image, setImage]         = useState<File | null>(null);
+  const [image, setImage] = useState<File | null>(null);
   // Which assistant message index is currently being regenerated (-1 = none)
   const [regeneratingIdx, setRegeneratingIdx] = useState(-1)
 
@@ -130,7 +130,7 @@ export function Chat() {
 
   // Timer
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const elapsedRef = useRef(0);
 
   useEffect(() => { elapsedRef.current = elapsedSeconds }, [elapsedSeconds]);
@@ -294,17 +294,17 @@ export function Chat() {
       const ver = versions[versionIdx]
       updated[msgIdx] = {
         ...msg,
-        activeVersionIdx:                     versionIdx,
-        message:                              ver.message,
-        token_data:                           ver.token_data,
-        generation_time_seconds:              ver.generation_time_seconds,
-        total_reliability:                    ver.total_reliability,
-        total_entropy:                        ver.total_entropy,
-        total_collision_entropy:              ver.total_collision_entropy,
+        activeVersionIdx: versionIdx,
+        message: ver.message,
+        token_data: ver.token_data,
+        generation_time_seconds: ver.generation_time_seconds,
+        total_reliability: ver.total_reliability,
+        total_entropy: ver.total_entropy,
+        total_collision_entropy: ver.total_collision_entropy,
         total_reliability_with_hidden_layers: ver.total_reliability_with_hidden_layers,
-        total_glu:                            ver.total_glu,
-        total_logtoku:                        ver.total_logtoku,
-        rag_sources:                          (ver as any).rag_sources ?? [],  // ← ADDED
+        total_glu: ver.total_glu,
+        total_logtoku: ver.total_logtoku,
+        rag_sources: (ver as any).rag_sources ?? [],  // ← ADDED
       }
       return updated
     })
@@ -322,7 +322,7 @@ export function Chat() {
       .find((m) => m.role === ChatMessageRoleType.USER)
     if (!userMsg) return
 
-    const chatId    = selectedChatId ?? assistantMsg.chat_id
+    const chatId = selectedChatId ?? assistantMsg.chat_id
     const messageId = assistantMsg.message_id
 
     if (!messageId) {
@@ -334,7 +334,7 @@ export function Chat() {
     const contextForApi = messages
       .slice(0, userMsgIdx)
       .map((m) => ({
-        role:    m.role === ChatMessageRoleType.USER ? "user" : "assistant",
+        role: m.role === ChatMessageRoleType.USER ? "user" : "assistant",
         content: m.message,
       }))
 
@@ -346,24 +346,25 @@ export function Chat() {
       const res = await fetch(
         `${API_BASE}/chats/${chatId}/messages/${messageId}/regenerate/stream`,
         {
-          method:  "POST",
+          method: "POST",
           headers: {
-            Authorization:  `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
             question: userMsg.message,
-            use_rag:  true,
-            context:  contextForApi,
+            country: "uae",
+            use_rag: true,
+            context: contextForApi,
           }),
         }
       )
 
       if (!res.ok || !res.body) throw new Error(`Regenerate stream failed: ${res.status}`)
 
-      const reader  = res.body.getReader()
+      const reader = res.body.getReader()
       const decoder = new TextDecoder()
-      let buffer    = ""
+      let buffer = ""
 
       while (true) {
         const { done, value } = await reader.read()
@@ -385,17 +386,17 @@ export function Chat() {
             streamingText += event.content
             setMessages((prev) => {
               const updated = [...prev]
-              const msg     = updated[msgIdx]
+              const msg = updated[msgIdx]
               const existingVersions = msg.versions ?? []
               const isPlaceholder =
                 existingVersions.length > 0 &&
                 (existingVersions[existingVersions.length - 1] as any)._streaming
 
               const streamingVersion: ResponseVersion & { _streaming?: boolean } = {
-                version_num:  (existingVersions[existingVersions.length - 1]?.version_num ?? 0) + (isPlaceholder ? 0 : 1),
-                message:      streamingText,
-                token_data:   [],
-                _streaming:   true,
+                version_num: (existingVersions[existingVersions.length - 1]?.version_num ?? 0) + (isPlaceholder ? 0 : 1),
+                message: streamingText,
+                token_data: [],
+                _streaming: true,
               }
 
               const newVersions = isPlaceholder
@@ -404,48 +405,48 @@ export function Chat() {
 
               updated[msgIdx] = {
                 ...msg,
-                versions:         newVersions,
+                versions: newVersions,
                 activeVersionIdx: newVersions.length - 1,
-                message:          streamingText,
+                message: streamingText,
               }
               return updated
             })
 
           } else if (event.type === "done") {
             const newVersion: ResponseVersion = {
-              version_num:                          event.version_num,
-              message:                              event.message,
-              token_data:                           event.token_data ?? [],
-              total_reliability:                    event.total_reliability,
-              total_entropy:                        event.total_entropy,
-              total_collision_entropy:              event.total_collision_entropy,
+              version_num: event.version_num,
+              message: event.message,
+              token_data: event.token_data ?? [],
+              total_reliability: event.total_reliability,
+              total_entropy: event.total_entropy,
+              total_collision_entropy: event.total_collision_entropy,
               total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers,
-              total_glu:                            event.total_glu ?? 0,
-              total_logtoku:                        event.total_logtoku ?? 0,
-              generation_time_seconds:              event.generation_time_seconds,
-              rag_sources:                          event.rag_sources ?? [],  // ← ADDED
+              total_glu: event.total_glu ?? 0,
+              total_logtoku: event.total_logtoku ?? 0,
+              generation_time_seconds: event.generation_time_seconds,
+              rag_sources: event.rag_sources ?? [],  // ← ADDED
             }
 
             setMessages((prev) => {
               const updated = [...prev]
-              const msg     = updated[msgIdx]
+              const msg = updated[msgIdx]
               const cleanVersions = (msg.versions ?? []).filter((v) => !(v as any)._streaming)
               const finalVersions = [...cleanVersions, newVersion]
 
               updated[msgIdx] = {
                 ...msg,
-                versions:                             finalVersions,
-                activeVersionIdx:                     finalVersions.length - 1,
-                message:                              newVersion.message,
-                token_data:                           newVersion.token_data,
-                generation_time_seconds:              newVersion.generation_time_seconds,
-                total_reliability:                    newVersion.total_reliability,
-                total_entropy:                        newVersion.total_entropy,
-                total_collision_entropy:              newVersion.total_collision_entropy,
+                versions: finalVersions,
+                activeVersionIdx: finalVersions.length - 1,
+                message: newVersion.message,
+                token_data: newVersion.token_data,
+                generation_time_seconds: newVersion.generation_time_seconds,
+                total_reliability: newVersion.total_reliability,
+                total_entropy: newVersion.total_entropy,
+                total_collision_entropy: newVersion.total_collision_entropy,
                 total_reliability_with_hidden_layers: newVersion.total_reliability_with_hidden_layers,
-                total_glu:                            newVersion.total_glu ?? 0,
-                total_logtoku:                        newVersion.total_logtoku ?? 0,
-                rag_sources:                          (newVersion as any).rag_sources ?? [],  // ← ADDED
+                total_glu: newVersion.total_glu ?? 0,
+                total_logtoku: newVersion.total_logtoku ?? 0,
+                rag_sources: (newVersion as any).rag_sources ?? [],  // ← ADDED
               }
               return updated
             })
@@ -456,15 +457,15 @@ export function Chat() {
           } else if (event.type === "error") {
             setMessages((prev) => {
               const updated = [...prev]
-              const msg     = updated[msgIdx]
+              const msg = updated[msgIdx]
               const cleanVersions = (msg.versions ?? []).filter((v) => !(v as any)._streaming)
               const prevIdx = cleanVersions.length - 1
               const prevVer = cleanVersions[prevIdx]
               updated[msgIdx] = {
                 ...msg,
-                versions:         cleanVersions,
+                versions: cleanVersions,
                 activeVersionIdx: prevIdx,
-                message:          prevVer?.message ?? msg.message,
+                message: prevVer?.message ?? msg.message,
               }
               return updated
             })
@@ -483,9 +484,9 @@ export function Chat() {
         const prevVer = cleanVersions[prevIdx]
         updated[msgIdx] = {
           ...msg,
-          versions:         cleanVersions,
+          versions: cleanVersions,
           activeVersionIdx: prevIdx,
-          message:          prevVer?.message ?? msg.message,
+          message: prevVer?.message ?? msg.message,
         }
         return updated
       })
@@ -528,12 +529,12 @@ export function Chat() {
     };
 
     const placeholder: ChatMessageModel = {
-      message:          "",
-      role:             ChatMessageRoleType.ASSISTANT,
-      chat_id:          chatId,
-      generation_type:  ChatMessageGenerationType.TEXT,
-      is_streaming:     true,
-      versions:         [],
+      message: "",
+      role: ChatMessageRoleType.ASSISTANT,
+      chat_id: chatId,
+      generation_type: ChatMessageGenerationType.TEXT,
+      is_streaming: true,
+      versions: [],
       activeVersionIdx: 0,
     };
 
@@ -545,7 +546,7 @@ export function Chat() {
     setImage(null);
 
     const contextForApi = [...messages, userMessage].map((msg) => ({
-      role:    msg.role === ChatMessageRoleType.USER ? "user" : "assistant",
+      role: msg.role === ChatMessageRoleType.USER ? "user" : "assistant",
       content: msg.message,
     }));
 
@@ -560,16 +561,16 @@ export function Chat() {
     function pushToSidebar(msg: ChatMessageModel & { generation_time_seconds?: number }) {
       setChatSessions((prev) => {
         const newMsg: HistoryMessage = {
-          question:                             messageText,
-          response:                             msg.message,
-          timestamp:                            new Date().toISOString(),
-          image_url:                            null,
-          generation_time_seconds:              msg.generation_time_seconds ?? null,
-          total_reliability:                    msg.total_reliability,
-          total_entropy:                        msg.total_entropy,
-          total_collision_entropy:              msg.total_collision_entropy,
+          question: messageText,
+          response: msg.message,
+          timestamp: new Date().toISOString(),
+          image_url: null,
+          generation_time_seconds: msg.generation_time_seconds ?? null,
+          total_reliability: msg.total_reliability,
+          total_entropy: msg.total_entropy,
+          total_collision_entropy: msg.total_collision_entropy,
           total_reliability_with_hidden_layers: msg.total_reliability_with_hidden_layers,
-          sign_images:                          msg.images,
+          sign_images: msg.images,
         };
         const idx = prev.findIndex((c) => c.chat_id === chatId);
         if (idx !== -1) {
@@ -587,6 +588,7 @@ export function Chat() {
         // ── Read the sign → identify-sign (SigLIP + GPT-4.1-mini, no LLM) ──
         const form = new FormData();
         form.append("image", capturedImage);
+        form.append("country", "uae")
         if (messageText.trim()) form.append("question", messageText);
         const payload = await apiClient.postForm(`/chats/${chatId}/identify-sign`, form, token);
         const assistantData = payload.data as ChatMessageModel & { generation_time_seconds?: number };
@@ -594,16 +596,16 @@ export function Chat() {
 
         // Wrap in versioning structure so regenerate works consistently
         const v1: ResponseVersion = {
-          version_num:                          1,
-          message:                              assistantData.message,
-          token_data:                           assistantData.token_data ?? [],
-          total_reliability:                    assistantData.total_reliability,
-          total_entropy:                        assistantData.total_entropy,
-          total_collision_entropy:              assistantData.total_collision_entropy,
+          version_num: 1,
+          message: assistantData.message,
+          token_data: assistantData.token_data ?? [],
+          total_reliability: assistantData.total_reliability,
+          total_entropy: assistantData.total_entropy,
+          total_collision_entropy: assistantData.total_collision_entropy,
           total_reliability_with_hidden_layers: assistantData.total_reliability_with_hidden_layers ?? 0,
-          total_glu:                            (assistantData as any).total_glu ?? 0,
-          total_logtoku:                        (assistantData as any).total_logtoku ?? 0,
-          generation_time_seconds:              assistantData.generation_time_seconds ?? 0,
+          total_glu: (assistantData as any).total_glu ?? 0,
+          total_logtoku: (assistantData as any).total_logtoku ?? 0,
+          generation_time_seconds: assistantData.generation_time_seconds ?? 0,
         };
         setMessages((prev) => {
           const idx = streamingIdxRef.current;
@@ -618,21 +620,21 @@ export function Chat() {
 
       } else if (mode === "name") {
         // ── Name the sign → find-sign (BGE-M3 catalog search, no LLM) ──────
-        const payload = await apiClient.post(`/chats/${chatId}/find-sign`, { question: messageText }, token);
+        const payload = await apiClient.post(`/chats/${chatId}/find-sign`, { question: messageText, country: "uae" }, token);
         const assistantData = payload.data as ChatMessageModel & { generation_time_seconds?: number };
         assistantData.images = await resolveImages(assistantData.images);
 
         const v1: ResponseVersion = {
-          version_num:                          1,
-          message:                              assistantData.message,
-          token_data:                           assistantData.token_data ?? [],
-          total_reliability:                    assistantData.total_reliability,
-          total_entropy:                        assistantData.total_entropy,
-          total_collision_entropy:              assistantData.total_collision_entropy,
+          version_num: 1,
+          message: assistantData.message,
+          token_data: assistantData.token_data ?? [],
+          total_reliability: assistantData.total_reliability,
+          total_entropy: assistantData.total_entropy,
+          total_collision_entropy: assistantData.total_collision_entropy,
           total_reliability_with_hidden_layers: assistantData.total_reliability_with_hidden_layers ?? 0,
-          total_glu:                            (assistantData as any).total_glu ?? 0,
-          total_logtoku:                        (assistantData as any).total_logtoku ?? 0,
-          generation_time_seconds:              assistantData.generation_time_seconds ?? 0,
+          total_glu: (assistantData as any).total_glu ?? 0,
+          total_logtoku: (assistantData as any).total_logtoku ?? 0,
+          generation_time_seconds: assistantData.generation_time_seconds ?? 0,
         };
         setMessages((prev) => {
           const idx = streamingIdxRef.current;
@@ -660,16 +662,16 @@ export function Chat() {
 
         // Wrap in versioning structure so regenerate works consistently
         const v1: ResponseVersion = {
-          version_num:                          1,
-          message:                              assistantData.message,
-          token_data:                           assistantData.token_data ?? [],
-          total_reliability:                    assistantData.total_reliability,
-          total_entropy:                        assistantData.total_entropy,
-          total_collision_entropy:              assistantData.total_collision_entropy,
+          version_num: 1,
+          message: assistantData.message,
+          token_data: assistantData.token_data ?? [],
+          total_reliability: assistantData.total_reliability,
+          total_entropy: assistantData.total_entropy,
+          total_collision_entropy: assistantData.total_collision_entropy,
           total_reliability_with_hidden_layers: assistantData.total_reliability_with_hidden_layers ?? 0,
-          total_glu:                            (assistantData as any).total_glu ?? 0,
-          total_logtoku:                        (assistantData as any).total_logtoku ?? 0,
-          generation_time_seconds:              assistantData.generation_time_seconds ?? 0,
+          total_glu: (assistantData as any).total_glu ?? 0,
+          total_logtoku: (assistantData as any).total_logtoku ?? 0,
+          generation_time_seconds: assistantData.generation_time_seconds ?? 0,
         };
         setMessages((prev) => {
           const idx = streamingIdxRef.current;
@@ -685,18 +687,18 @@ export function Chat() {
       } else {
         // ── Ask text-only → SSE token-by-token streaming ─────────────────────
         let streamText = "";
-        let seenFirst  = false;
+        let seenFirst = false;
 
         for await (const event of streamSSE(
           `/chats/${chatId}/stream`,
-          { chat_id: chatId, question: messageText, use_rag: true, context: contextForApi },
+          { chat_id: chatId, question: messageText, country: "uae", use_rag: true, context: contextForApi },
           token
         )) {
           if (event.type === "token") {
             streamText += (event.content as string) ?? "";
 
             if (!seenFirst) {
-              seenFirst      = true;
+              seenFirst = true;
               streamingAdded = true;
               // First token: update the placeholder in-place via streamingIdxRef
               setMessages((prev) => {
@@ -723,38 +725,38 @@ export function Chat() {
 
             // Build version 1 from the completed response
             const v1: ResponseVersion = {
-              version_num:                          1,
-              message:                              (event.message as string) ?? streamText,
-              token_data:                           (event.token_data as TokenData[]) ?? [],
-              total_reliability:                    event.total_reliability as number | undefined,
-              total_entropy:                        event.total_entropy as number | undefined,
-              total_collision_entropy:              event.total_collision_entropy as number | undefined,
+              version_num: 1,
+              message: (event.message as string) ?? streamText,
+              token_data: (event.token_data as TokenData[]) ?? [],
+              total_reliability: event.total_reliability as number | undefined,
+              total_entropy: event.total_entropy as number | undefined,
+              total_collision_entropy: event.total_collision_entropy as number | undefined,
               total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers as number | undefined,
-              total_glu:                            (event.total_glu as number) ?? 0,
-              total_logtoku:                        (event.total_logtoku as number) ?? 0,
-              generation_time_seconds:              (event.generation_time_seconds as number) ?? finalElapsed,
-              rag_sources:                          (event.rag_sources as any[]) ?? [],  // ← ADDED
+              total_glu: (event.total_glu as number) ?? 0,
+              total_logtoku: (event.total_logtoku as number) ?? 0,
+              generation_time_seconds: (event.generation_time_seconds as number) ?? finalElapsed,
+              rag_sources: (event.rag_sources as any[]) ?? [],  // ← ADDED
             };
 
             const doneMsg: ChatMessageModel & { generation_time_seconds?: number } = {
-              message:                              v1.message,
-              role:                                 ChatMessageRoleType.ASSISTANT,
-              chat_id:                              (event.chat_id as string) ?? chatId,
-              generation_type:                      (event.generation_type as ChatMessageGenerationType) ?? ChatMessageGenerationType.TEXT,
-              message_id:                           event.message_id as string | undefined,
-              token_data:                           v1.token_data,
-              total_reliability:                    v1.total_reliability,
-              total_entropy:                        v1.total_entropy,
-              total_collision_entropy:              v1.total_collision_entropy,
+              message: v1.message,
+              role: ChatMessageRoleType.ASSISTANT,
+              chat_id: (event.chat_id as string) ?? chatId,
+              generation_type: (event.generation_type as ChatMessageGenerationType) ?? ChatMessageGenerationType.TEXT,
+              message_id: event.message_id as string | undefined,
+              token_data: v1.token_data,
+              total_reliability: v1.total_reliability,
+              total_entropy: v1.total_entropy,
+              total_collision_entropy: v1.total_collision_entropy,
               total_reliability_with_hidden_layers: v1.total_reliability_with_hidden_layers,
-              total_glu:                            v1.total_glu,
-              total_logtoku:                        v1.total_logtoku,
-              generation_time_seconds:              v1.generation_time_seconds,
-              rag_sources:                          (event.rag_sources as any[]) ?? [],  // ← ADDED
-              is_streaming:                         false,
-              versions:                             [v1],
-              activeVersionIdx:                     0,
-              images:                               [],
+              total_glu: v1.total_glu,
+              total_logtoku: v1.total_logtoku,
+              generation_time_seconds: v1.generation_time_seconds,
+              rag_sources: (event.rag_sources as any[]) ?? [],  // ← ADDED
+              is_streaming: false,
+              versions: [v1],
+              activeVersionIdx: 0,
+              images: [],
             };
 
             flushSync(() => {
@@ -774,13 +776,13 @@ export function Chat() {
 
             setChatSessions((prev) => {
               const newMsg: HistoryMessage = {
-                question:                messageText,
-                response:                doneMsg.message,
-                timestamp:               new Date().toISOString(),
-                image_url:               (event.image_url as string) ?? null,
+                question: messageText,
+                response: doneMsg.message,
+                timestamp: new Date().toISOString(),
+                image_url: (event.image_url as string) ?? null,
                 generation_time_seconds: doneMsg.generation_time_seconds ?? elapsedRef.current,
-                total_reliability:       doneMsg.total_reliability,
-                total_entropy:           doneMsg.total_entropy,
+                total_reliability: doneMsg.total_reliability,
+                total_entropy: doneMsg.total_entropy,
                 total_collision_entropy: doneMsg.total_collision_entropy,
               };
               const idx = prev.findIndex((c) => c.chat_id === chatId);
@@ -803,7 +805,7 @@ export function Chat() {
               const updated = [...prev];
               updated[idx] = {
                 ...updated[idx],
-                message:      "Sorry, there was an error. Please try again.",
+                message: "Sorry, there was an error. Please try again.",
                 is_streaming: false,
               };
               return updated;
@@ -826,7 +828,7 @@ export function Chat() {
           const updated = [...prev];
           updated[idx] = {
             ...updated[idx],
-            message:      "Sorry, there was an error processing your request. Please try again.",
+            message: "Sorry, there was an error processing your request. Please try again.",
             is_streaming: false,
           };
           return updated;
@@ -837,9 +839,9 @@ export function Chat() {
         return [
           ...base,
           {
-            message:         "Sorry, there was an error processing your request. Please try again.",
-            role:            ChatMessageRoleType.ASSISTANT,
-            chat_id:         chatId ?? urlChatId ?? "",
+            message: "Sorry, there was an error processing your request. Please try again.",
+            role: ChatMessageRoleType.ASSISTANT,
+            chat_id: chatId ?? urlChatId ?? "",
             generation_type: ChatMessageGenerationType.TEXT,
           } as ChatMessageModel,
         ];
