@@ -224,30 +224,51 @@ export function Chat() {
   async function handleFeedback(
     messageId: string,
     versionNum: number,
-    type: FeedbackType,
+    type: FeedbackType | null,   // null = clear/toggle off
     reason?: string,
     customReason?: string
   ) {
+    // Find current feedback to detect toggle-off
+    const currentMsg = messages.find(m => m.message_id === messageId)
+    const currentVer = currentMsg?.versions?.find(v => v.version_num === versionNum)
+    const isTogglingOff = type !== null && currentVer?.feedback?.feedback_type === type && reason === undefined
+
     try {
-      await apiClient.post(
-        `/chats/${selectedChatId}/messages/${messageId}/feedback`,
-        { feedback_type: type, version_num: versionNum, reason, custom_reason: customReason },
-        token
-      );
-      setMessages(prev => prev.map(m => {
-        if (m.message_id !== messageId) return m;
-        const versions = (m.versions ?? []).map(v =>
-          v.version_num === versionNum
-            ? { ...v, feedback: { feedback_type: type, reason, custom_reason: customReason } }
-            : v
+      if (type === null || isTogglingOff) {
+        // User clicked the already-active button — remove feedback
+        await apiClient.delete(
+          `/chats/${selectedChatId}/messages/${messageId}/feedback?version_num=${versionNum}`,
+          token
         );
-        return { ...m, versions };
-      }));
-      toast.success("Thanks for your feedback!");
+        setMessages(prev => prev.map(m => {
+          if (m.message_id !== messageId) return m;
+          const versions = (m.versions ?? []).map(v =>
+            v.version_num === versionNum ? { ...v, feedback: null } : v
+          );
+          return { ...m, versions };
+        }));
+      } else {
+        await apiClient.post(
+          `/chats/${selectedChatId}/messages/${messageId}/feedback`,
+          { feedback_type: type, version_num: versionNum, reason, custom_reason: customReason },
+          token
+        );
+        setMessages(prev => prev.map(m => {
+          if (m.message_id !== messageId) return m;
+          const versions = (m.versions ?? []).map(v =>
+            v.version_num === versionNum
+              ? { ...v, feedback: { feedback_type: type, reason, custom_reason: customReason } }
+              : v
+          );
+          return { ...m, versions };
+        }));
+        toast.success("Thanks for your feedback!");
+      }
     } catch {
       toast.error("Couldn't save feedback, please try again.");
     }
   }
+
 
   // ── Sidebar handlers ──────────────────────────────────────────────────────
   function handleNewChat() {
@@ -930,9 +951,11 @@ export function Chat() {
             <LogOutIcon size={18} />
           </button>
         </div>
-
+        
+        
+        {/* gap between messages is 40 now */}
         <div
-          style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16, paddingTop: empty ? 0 : 16 }}
+          style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 40, paddingTop: empty ? 0 : 16 }}
           ref={messagesContainerRef}
         >
           {empty && (

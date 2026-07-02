@@ -7,11 +7,13 @@ interface DislikeFeedbackModalProps {
   show: boolean
   onClose: () => void
   onSubmit: (reason: string, customReason?: string) => void
+  initialReason?: string
+  initialCustom?: string
 }
 
-export function DislikeFeedbackModal({ show, onClose, onSubmit }: DislikeFeedbackModalProps) {
-  const [selected, setSelected] = useState<string>("")
-  const [customText, setCustomText] = useState<string>("")
+export function DislikeFeedbackModal({ show, onClose, onSubmit, initialReason = "", initialCustom = "" }: DislikeFeedbackModalProps) {
+  const [selected, setSelected] = useState<string>(initialReason)
+  const [customText, setCustomText] = useState<string>(initialCustom)
 
   const isOther = selected === "Other"
 
