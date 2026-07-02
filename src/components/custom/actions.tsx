@@ -23,7 +23,7 @@ const RelRing = ({ value, size = 18, sw = 3, color }: { value: number; size?: nu
 interface MessageActionsProps {
   message: ChatMessageModel
   setShowUQModal: (show: boolean) => void
-  setShowSourcesModal: (show: boolean) => void 
+  setShowSourcesModal: (show: boolean) => void
   onRegenerate?: () => void
   isRegenerating?: boolean
   versions?: ResponseVersion[]
@@ -47,8 +47,15 @@ export function MessageActions({
 }: MessageActionsProps) {
   const [copied, setCopied] = useState(false)
   const [showDislikeModal, setShowDislikeModal] = useState(false)
+
+  // Derived from persisted feedback — not local state, survives re-renders
   const liked    = feedback?.feedback_type === FeedbackType.LIKE
   const disliked = feedback?.feedback_type === FeedbackType.DISLIKE
+  const dislikeReason = disliked
+    ? (feedback?.reason === "Other" && feedback?.custom_reason
+        ? feedback.custom_reason
+        : feedback?.reason)
+    : null
 
   const handleCopy = () => {
     navigator.clipboard.writeText((message as any).response ?? message.message)
@@ -81,67 +88,101 @@ export function MessageActions({
   };
 
   const onHover = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.background    = "var(--surface-2)";
-    e.currentTarget.style.borderColor   = "var(--line)";
-    e.currentTarget.style.color         = "var(--ink)";
+    e.currentTarget.style.background  = "var(--surface-2)";
+    e.currentTarget.style.borderColor = "var(--line)";
+    e.currentTarget.style.color       = "var(--ink)";
   };
   const onUnhover = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.background    = "transparent";
-    e.currentTarget.style.borderColor   = "transparent";
-    e.currentTarget.style.color         = "var(--ink-3)";
+    e.currentTarget.style.background  = "transparent";
+    e.currentTarget.style.borderColor = "transparent";
+    e.currentTarget.style.color       = "var(--ink-3)";
   };
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 12, flexWrap: "wrap" }}>
 
       {/* Sources chip */}
-{!isRegenerating && (message as any).rag_sources?.length > 0 && (
-  <div style={{ width: "100%", marginBottom: 6 }}>
-    <button
-      onClick={() => setShowSourcesModal(true)}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 7,
-        padding: "5px 11px 5px 9px",
-        borderRadius: 99,
-        background: "var(--surface-2)",
-        border: "1px solid var(--line)",
-        color: "var(--ink-2)",
-        cursor: "pointer",
-        transition: "transform .15s, box-shadow .15s",
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.boxShadow = "var(--shadow-sm)";
-        e.currentTarget.style.transform = "translateY(-1px)";
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.boxShadow = "none";
-        e.currentTarget.style.transform = "none";
-      }}
-    >
-      <BookOpen size={14} />
-      <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-.01em" }}>
-        Sources
-      </span>
-      <span
-        style={{
-          fontSize: 11,
-          fontWeight: 500,
-          background: "var(--surface)",
-          border: "1px solid var(--line)",
-          borderRadius: 99,
-          padding: "1px 6px",
-          color: "var(--ink-3)",
-        }}
-      >
-        {[...(new Set((message as any).rag_sources.flatMap((s: any) => s.pages)))].length} pages
-      </span>
-    </button>
-  </div>
-)}
+      {!isRegenerating && (message as any).rag_sources?.length > 0 && (
+        <div style={{ width: "100%", marginBottom: 6 }}>
+          <button
+            onClick={() => setShowSourcesModal(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "5px 11px 5px 9px",
+              borderRadius: 99,
+              background: "var(--surface-2)",
+              border: "1px solid var(--line)",
+              color: "var(--ink-2)",
+              cursor: "pointer",
+              transition: "transform .15s, box-shadow .15s",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.boxShadow = "var(--shadow-sm)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.boxShadow = "none";
+              e.currentTarget.style.transform = "none";
+            }}
+          >
+            <BookOpen size={14} />
+            <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-.01em" }}>
+              Sources
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                background: "var(--surface)",
+                border: "1px solid var(--line)",
+                borderRadius: 99,
+                padding: "1px 6px",
+                color: "var(--ink-3)",
+              }}
+            >
+              {[...(new Set((message as any).rag_sources.flatMap((s: any) => s.pages)))].length} pages
+            </span>
+          </button>
+        </div>
+      )}
 
-
+      {/* Dislike reason pill — sits below Sources, above icon row */}
+      {disliked && dislikeReason && (
+        <div style={{ width: "100%", marginBottom: 2 }}>
+          <button
+            onClick={() => setShowDislikeModal(true)}
+            title="Click to change reason"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "3px 9px",
+              borderRadius: 99,
+              background: "var(--caution-bg)",
+              border: "1px solid var(--caution-line)",
+              color: "var(--caution)",
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: "pointer",
+              maxWidth: 200,
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
+            }}
+          >
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+              {dislikeReason}
+            </span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Copy */}
       <button style={iconBtn} onClick={handleCopy} aria-label="Copy" disabled={isRegenerating}
@@ -151,31 +192,46 @@ export function MessageActions({
           : <Copy size={15} />}
       </button>
 
-{/* Thumbs up */}
+      {/* Thumbs up — clicking while already liked toggles it off */}
       <button
-        style={{ ...iconBtn, color: liked ? "var(--ink)" : "var(--ink-3)" }}
+        style={{
+          ...iconBtn,
+          color:       liked ? "var(--reliable)"     : "var(--ink-3)",
+          background:  liked ? "var(--reliable-bg)"  : "transparent",
+          borderColor: liked ? "var(--reliable-line)" : "transparent",
+        }}
         onClick={() => onFeedback?.(FeedbackType.LIKE)}
         aria-label="Helpful"
         disabled={isRegenerating}
         onMouseEnter={onHover} onMouseLeave={onUnhover}
       >
-        <ThumbsUp size={15} fill={liked ? "var(--ink)" : "none"} />
+        <ThumbsUp size={15} fill={liked ? "var(--reliable)" : "none"} />
       </button>
 
-      {/* Thumbs down */}
+      {/* Thumbs down — clicking while already disliked toggles it off; otherwise opens modal */}
       <button
-        style={{ ...iconBtn, color: disliked ? "var(--ink)" : "var(--ink-3)" }}
-        onClick={() => setShowDislikeModal(true)}
+        style={{
+          ...iconBtn,
+          color:       disliked ? "var(--caution)"     : "var(--ink-3)",
+          background:  disliked ? "var(--caution-bg)"  : "transparent",
+          borderColor: disliked ? "var(--caution-line)" : "transparent",
+        }}
+        onClick={() => disliked ? onFeedback?.(FeedbackType.DISLIKE) : setShowDislikeModal(true)}
         aria-label="Not helpful"
         disabled={isRegenerating}
         onMouseEnter={onHover} onMouseLeave={onUnhover}
       >
-        <ThumbsDown size={15} fill={disliked ? "var(--ink)" : "none"} />
+        <ThumbsDown size={15} fill={disliked ? "var(--caution)" : "none"} />
       </button>
 
+      
+
+      {/* Dislike modal */}
       {showDislikeModal && (
         <DislikeFeedbackModal
           show={showDislikeModal}
+          initialReason={feedback?.reason ?? ""}
+          initialCustom={feedback?.custom_reason ?? ""}
           onClose={() => setShowDislikeModal(false)}
           onSubmit={(reason, customReason) => {
             onFeedback?.(FeedbackType.DISLIKE, reason, customReason)
@@ -197,7 +253,7 @@ export function MessageActions({
             <RotateCcw
               size={15}
               style={{
-                color: isRegenerating ? "var(--ink-3)" : undefined,
+                color:     isRegenerating ? "var(--ink-3)" : undefined,
                 animation: isRegenerating ? "spin 1s linear infinite" : undefined,
               }}
             />
@@ -274,9 +330,6 @@ export function MessageActions({
           </span>
         </button>
       )}
-
-      
-
 
     </div>
   );
