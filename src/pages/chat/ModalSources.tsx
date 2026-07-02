@@ -265,30 +265,32 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
                   s.pages.includes(current.page_num) && s.part === current.part
                 )
                 return matchingSrc ? (
-                  <div style={{
-                    marginTop: 16, padding: "13px 15px",
-                    borderRadius: 12, background: "var(--surface-2)",
-                    border: "1px solid var(--line)",
-                  }}>
+                  <div 
+                  // style={{
+                  //   marginTop: 16, padding: "13px 15px",
+                  //   borderRadius: 12, background: "var(--surface-2)",
+                  //   border: "1px solid var(--line)",
+                  // }}
+                  >
                     <div style={{
                       fontSize: 10.5, fontWeight: 700,
                       letterSpacing: ".05em", textTransform: "uppercase",
                       color: "var(--ink-3)", marginBottom: 7,
                     }}>
-                      Relevant excerpt
+                      {/* Relevant excerpt */}
                     </div>
                     <p style={{
                       fontSize: 13, color: "var(--ink-2)",
                       lineHeight: 1.65, margin: 0,
                     }}>
-                      {matchingSrc.excerpt}
+                      {/* {matchingSrc.excerpt} */}
                     </p>
-                    <div style={{
+                    {/* <div style={{
                       fontSize: 11, color: "var(--ink-3)",
                       marginTop: 8, fontFamily: "var(--mono)",
                     }}>
                       retrieval score: {matchingSrc.score.toFixed(4)}
-                    </div>
+                    </div> */}
                   </div>
                 ) : null
               })()}

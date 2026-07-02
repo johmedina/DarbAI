@@ -148,41 +148,7 @@ export function MessageActions({
         </div>
       )}
 
-      {/* Dislike reason pill — sits below Sources, above icon row */}
-      {disliked && dislikeReason && (
-        <div style={{ width: "100%", marginBottom: 2 }}>
-          <button
-            onClick={() => setShowDislikeModal(true)}
-            title="Click to change reason"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-              padding: "3px 9px",
-              borderRadius: 99,
-              background: "var(--caution-bg)",
-              border: "1px solid var(--caution-line)",
-              color: "var(--caution)",
-              fontSize: 12,
-              fontWeight: 500,
-              cursor: "pointer",
-              maxWidth: 200,
-              overflow: "hidden",
-              whiteSpace: "nowrap",
-              textOverflow: "ellipsis",
-            }}
-          >
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-              {dislikeReason}
-            </span>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-          </button>
-        </div>
-      )}
+      
 
       {/* Copy */}
       <button style={iconBtn} onClick={handleCopy} aria-label="Copy" disabled={isRegenerating}
@@ -329,6 +295,42 @@ export function MessageActions({
             </svg>
           </span>
         </button>
+      )}
+
+      {/* Dislike reason banner — below all icons */}
+      {disliked && dislikeReason && (
+        <div style={{
+          width: "100%",
+          marginTop: 8,
+          paddingTop: 10,
+          borderTop: "1px solid var(--line)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, color: "var(--caution)" }}>
+            <ThumbsDown size={13} fill="var(--caution)" stroke="var(--caution)" />
+            <span style={{ color: "var(--ink-2)" }}>
+              You marked this unhelpful —{" "}
+              <strong style={{ color: "var(--ink)" }}>{dislikeReason}</strong>
+            </span>
+          </span>
+          <button
+            onClick={() => setShowDislikeModal(true)}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--caution)",
+              padding: 0,
+              flexShrink: 0,
+            }}
+          >
+            Change
+          </button>
+        </div>
       )}
 
     </div>

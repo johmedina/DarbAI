@@ -231,7 +231,7 @@ export function Chat() {
     // Find current feedback to detect toggle-off
     const currentMsg = messages.find(m => m.message_id === messageId)
     const currentVer = currentMsg?.versions?.find(v => v.version_num === versionNum)
-    const isTogglingOff = type !== null && currentVer?.feedback?.feedback_type === type
+    const isTogglingOff = type !== null && currentVer?.feedback?.feedback_type === type && reason === undefined
 
     try {
       if (type === null || isTogglingOff) {
@@ -949,9 +949,11 @@ export function Chat() {
             <LogOutIcon size={18} />
           </button>
         </div>
-
+        
+        
+        {/* gap between messages is 40 now */}
         <div
-          style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16, paddingTop: empty ? 0 : 16 }}
+          style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 40, paddingTop: empty ? 0 : 16 }}
           ref={messagesContainerRef}
         >
           {empty && (
