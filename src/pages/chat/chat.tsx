@@ -24,6 +24,12 @@ import { useAuth } from "@/context/AuthContext";
 import { apiClient, API_BASE, streamSSE } from "@/lib/apiClient";
 import { toast } from "sonner";
 
+// ── Countries ──────────────────────────────────────────────────────────────────
+const COUNTRIES = [
+  { code: "uae",   name: "United Arab Emirates", flag: "🇦🇪" },
+  { code: "qatar", name: "Qatar",                 flag: "🇶🇦" },
+]
+
 // ── Authenticated image loader ─────────────────────────────────────────────────
 const _blobCache = new Map<string, string>();
 
@@ -61,8 +67,8 @@ function sessionToMessages(
         total_glu: (m as any).total_glu ?? 0,
         total_logtoku: (m as any).total_logtoku ?? 0,
         generation_time_seconds: m.generation_time_seconds,
-        rag_sources: (m as any).rag_sources ?? [],  // ← ADDED
-        feedback: (m as any).feedback ?? null,   // ← ADDED
+        rag_sources: (m as any).rag_sources ?? [],
+        feedback: (m as any).feedback ?? null,
       }]
 
     return [
@@ -93,7 +99,7 @@ function sessionToMessages(
           resolvedUrl: imageUrlMap[img.url] ?? undefined,
         })),
         token_data: (m as any).token_data ?? [],
-        rag_sources: (m as any).rag_sources ?? [],  // ← ADDED
+        rag_sources: (m as any).rag_sources ?? [],
         versions,
         activeVersionIdx: versions.length - 1,
       } as ChatMessageModel,
@@ -124,6 +130,9 @@ export function Chat() {
   const [image, setImage] = useState<File | null>(null);
   // Which assistant message index is currently being regenerated (-1 = none)
   const [regeneratingIdx, setRegeneratingIdx] = useState(-1)
+
+  // Country — resets on every new chat, persists for the life of one chat
+  const [country, setCountry] = useState<string | null>(null)
 
   const loadedChatIdRef = useRef<string | null>(null);
   const streamingIdxRef = useRef<number>(-1);
@@ -204,6 +213,9 @@ export function Chat() {
     }
     if (loadedChatIdRef.current === urlChatId) return;
 
+    // Reset country when switching to a different existing chat
+    setCountry(null);
+
     (async () => {
       try {
         const data = await apiClient.get(`/chats/${urlChatId}`, token);
@@ -269,13 +281,13 @@ export function Chat() {
     }
   }
 
-
   // ── Sidebar handlers ──────────────────────────────────────────────────────
   function handleNewChat() {
     loadedChatIdRef.current = null;
     setMessages([]);
     setQuestion("");
     setImage(null);
+    setCountry(null);
     setSidebarOpen(false);
     navigate("/");
   }
@@ -325,7 +337,7 @@ export function Chat() {
         total_reliability_with_hidden_layers: ver.total_reliability_with_hidden_layers,
         total_glu: ver.total_glu,
         total_logtoku: ver.total_logtoku,
-        rag_sources: (ver as any).rag_sources ?? [],  // ← ADDED
+        rag_sources: (ver as any).rag_sources ?? [],
       }
       return updated
     })
@@ -374,7 +386,7 @@ export function Chat() {
           },
           body: JSON.stringify({
             question: userMsg.message,
-            country: "uae",
+            country: country ?? "uae",
             use_rag: true,
             context: contextForApi,
           }),
@@ -445,7 +457,7 @@ export function Chat() {
               total_glu: event.total_glu ?? 0,
               total_logtoku: event.total_logtoku ?? 0,
               generation_time_seconds: event.generation_time_seconds,
-              rag_sources: event.rag_sources ?? [],  // ← ADDED
+              rag_sources: event.rag_sources ?? [],
             }
 
             setMessages((prev) => {
@@ -467,7 +479,7 @@ export function Chat() {
                 total_reliability_with_hidden_layers: newVersion.total_reliability_with_hidden_layers,
                 total_glu: newVersion.total_glu ?? 0,
                 total_logtoku: newVersion.total_logtoku ?? 0,
-                rag_sources: (newVersion as any).rag_sources ?? [],  // ← ADDED
+                rag_sources: (newVersion as any).rag_sources ?? [],
               }
               return updated
             })
@@ -609,7 +621,7 @@ export function Chat() {
         // ── Read the sign → identify-sign (SigLIP + GPT-4.1-mini, no LLM) ──
         const form = new FormData();
         form.append("image", capturedImage);
-        form.append("country", "uae")
+        form.append("country", country ?? "uae")
         if (messageText.trim()) form.append("question", messageText);
         const payload = await apiClient.postForm(`/chats/${chatId}/identify-sign`, form, token);
         const assistantData = payload.data as ChatMessageModel & { generation_time_seconds?: number };
@@ -641,7 +653,7 @@ export function Chat() {
 
       } else if (mode === "name") {
         // ── Name the sign → find-sign (BGE-M3 catalog search, no LLM) ──────
-        const payload = await apiClient.post(`/chats/${chatId}/find-sign`, { question: messageText, country: "uae" }, token);
+        const payload = await apiClient.post(`/chats/${chatId}/find-sign`, { question: messageText, country: country ?? "uae" }, token);
         const assistantData = payload.data as ChatMessageModel & { generation_time_seconds?: number };
         assistantData.images = await resolveImages(assistantData.images);
 
@@ -712,7 +724,7 @@ export function Chat() {
 
         for await (const event of streamSSE(
           `/chats/${chatId}/stream`,
-          { chat_id: chatId, question: messageText, country: "uae", use_rag: true, context: contextForApi },
+          { chat_id: chatId, question: messageText, country: country ?? "uae", use_rag: true, context: contextForApi },
           token
         )) {
           if (event.type === "token") {
@@ -729,7 +741,6 @@ export function Chat() {
                 updated[idx] = { ...updated[idx], message: streamText };
                 return updated;
               });
-              // setIsLoading(false);
             } else {
               setMessages((prev) => {
                 const idx = streamingIdxRef.current;
@@ -756,7 +767,7 @@ export function Chat() {
               total_glu: (event.total_glu as number) ?? 0,
               total_logtoku: (event.total_logtoku as number) ?? 0,
               generation_time_seconds: (event.generation_time_seconds as number) ?? finalElapsed,
-              rag_sources: (event.rag_sources as any[]) ?? [],  // ← ADDED
+              rag_sources: (event.rag_sources as any[]) ?? [],
             };
 
             const doneMsg: ChatMessageModel & { generation_time_seconds?: number } = {
@@ -773,7 +784,7 @@ export function Chat() {
               total_glu: v1.total_glu,
               total_logtoku: v1.total_logtoku,
               generation_time_seconds: v1.generation_time_seconds,
-              rag_sources: (event.rag_sources as any[]) ?? [],  // ← ADDED
+              rag_sources: (event.rag_sources as any[]) ?? [],
               is_streaming: false,
               versions: [v1],
               activeVersionIdx: 0,
@@ -855,7 +866,7 @@ export function Chat() {
           return updated;
         }
 
-        // Otherwise remove any partially-added streaming message and append error
+         // Otherwise remove any partially-added streaming message and append error
         const base = streamingAdded ? prev.slice(0, -1) : prev;
         return [
           ...base,
@@ -877,6 +888,7 @@ export function Chat() {
   const empty = messages.length === 0 && !isLoading;
   const streamingPlaceholder = messages.find((m) => (m as any).is_streaming);
   const showThinking = isLoading && !streamingPlaceholder?.message;
+  const activeCountry = COUNTRIES.find(c => c.code === country)
 
   return (
     <div style={{ display: "flex", height: "100dvh", overflow: "hidden", background: "var(--bg)" }}>
@@ -924,6 +936,27 @@ export function Chat() {
 
           <ModeSwitch mode={mode} onMode={(id) => { setMode(id); handleNewChat(); }} />
 
+          {/* Country badge — shows in header once a country is selected and chat has started */}
+          {activeCountry && !empty && (
+            <div style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 10px",
+              borderRadius: 99,
+              background: "var(--surface-2)",
+              border: "1px solid var(--line)",
+              fontSize: 12.5,
+              fontWeight: 500,
+              color: "var(--ink-2)",
+              marginLeft: 4,
+              flexShrink: 0,
+            }}>
+              <span>{activeCountry.flag}</span>
+              <span>{activeCountry.name}</span>
+            </div>
+          )}
+
           <div style={{ flex: 1 }} />
 
           <ThemeToggle />
@@ -951,20 +984,57 @@ export function Chat() {
             <LogOutIcon size={18} />
           </button>
         </div>
-        
-        
-        {/* gap between messages is 40 now */}
+
         <div
           style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 40, paddingTop: empty ? 0 : 16 }}
           ref={messagesContainerRef}
         >
           {empty && (
-            <Overview
-              mode={mode}
-              onSuggest={(text) => handleSubmit(text)}
-              onAttachImage={(file) => setImage(file)}
-            />
+            <>
+              <Overview
+                mode={mode}
+                onSuggest={(text) => handleSubmit(text)}
+                onAttachImage={(file) => setImage(file)}
+              />
+
+              {/* Country dropdown — same page as Overview, above the input */}
+              <div style={{ display: "flex", justifyContent: "center", padding: "0 0 8px" }}>
+                <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+                  <select
+                    value={country ?? ""}
+                    onChange={e => setCountry(e.target.value || null)}
+                    style={{
+                      appearance: "none",
+                      padding: "9px 36px 9px 14px",
+                      borderRadius: 10,
+                      border: `1px solid ${country ? "var(--ink-3)" : "var(--line)"}`,
+                      background: "var(--surface-2)",
+                      color: country ? "var(--ink)" : "var(--ink-3)",
+                      fontSize: 13.5,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      outline: "none",
+                      minWidth: 220,
+                    }}
+                  >
+                    <option value="">🌍 Select a country...</option>
+                    {COUNTRIES.map(c => (
+                      <option key={c.code} value={c.code}>{c.flag}  {c.name}</option>
+                    ))}
+                  </select>
+                  {/* chevron icon */}
+                  <svg
+                    width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="var(--ink-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ position: "absolute", right: 11, pointerEvents: "none" }}
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+            </>
           )}
+
           {messages.map((msg, i) => (
             <PreviewMessage
               key={i}
@@ -993,10 +1063,10 @@ export function Chat() {
             question={question}
             setQuestion={setQuestion}
             onSubmit={handleSubmit}
-            isLoading={isLoading || regeneratingIdx !== -1}
+            isLoading={isLoading || regeneratingIdx !== -1 || !country}
             image={image}
             setImage={setImage}
-            placeholder={MODES[mode].placeholder}
+            placeholder={country ? MODES[mode].placeholder : "Select a country above to start chatting..."}
             emphasizeAttach={mode === "read"}
           />
         </div>
