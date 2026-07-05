@@ -349,7 +349,7 @@ export function Sidebar({
   return (
     <>
       {/* Backdrop */}
-      <div
+      {/* <div
         onClick={onClose}
         style={{
           position: "fixed", inset: 0, zIndex: 30,
@@ -358,16 +358,39 @@ export function Sidebar({
           pointerEvents: isOpen ? "auto" : "none",
           transition: "opacity .25s",
         }}
-      />
+      /> */}
 
       {/* Drawer */}
-      <aside style={{
+      {/* <aside style={{
         position: "fixed", inset: "0 auto 0 0", zIndex: 40, width: 270,
         background: "var(--surface)", borderRight: "1px solid var(--line)",
         display: "flex", flexDirection: "column",
         transform: isOpen ? "none" : "translateX(-100%)",
         transition: "transform .3s cubic-bezier(.2,.8,.2,1)",
-      }}>
+      }}> */}
+
+      <aside
+        style={{
+          width: isOpen ? 270 : 0,
+          minWidth: isOpen ? 270 : 0,
+          flexShrink: 0,
+          overflow: "hidden",
+          background: "var(--surface)",
+          borderRight: isOpen ? "1px solid var(--line)" : "1px solid transparent",
+          transition: "width .28s cubic-bezier(.2,.8,.2,1), border-color .28s",
+        }}
+      >
+        <div
+          style={{
+            width: 270,
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            opacity: isOpen ? 1 : 0,
+            transition: "opacity .18s ease",
+          }}
+        >
+
         {/* Header */}
         <div style={{ padding: "16px 16px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <img src={logo} alt="Salama" style={{ height: 22, width: "auto" }} />
@@ -512,6 +535,7 @@ export function Sidebar({
             </div>
           </div>
         )}
+        </div>
       </aside>
     </>
   );
