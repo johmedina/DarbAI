@@ -115,7 +115,18 @@ export function Chat() {
   const [messagesContainerRef, messagesEndRef] = useScrollToBottom<HTMLDivElement>();
 
   // Sidebar
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Sidebar — persisted across navigation and page refreshes.
+  // Defaults to open; only the explicit toggle button should change this.
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+    const stored = localStorage.getItem("salama-sidebar-open");
+    return stored === null ? true : stored === "true";
+  });
+  useEffect(() => {
+    localStorage.setItem("salama-sidebar-open", String(sidebarOpen));
+  }, [sidebarOpen]);
+
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
@@ -288,12 +299,12 @@ export function Chat() {
     setQuestion("");
     setImage(null);
     setCountry(null);
-    setSidebarOpen(false);
+    // setSidebarOpen(false);
     navigate("/");
   }
 
   function handleSelectChat(session: ChatSession) {
-    setSidebarOpen(false);
+    // setSidebarOpen(false);
     loadedChatIdRef.current = null;
     navigate(`/chat/${session.chat_id}`);
   }
@@ -386,7 +397,7 @@ export function Chat() {
           },
           body: JSON.stringify({
             question: userMsg.message,
-            country: country ?? "uae",
+            country: country ?? "qatar",
             use_rag: true,
             context: contextForApi,
           }),
@@ -621,7 +632,7 @@ export function Chat() {
         // ── Read the sign → identify-sign (SigLIP + GPT-4.1-mini, no LLM) ──
         const form = new FormData();
         form.append("image", capturedImage);
-        form.append("country", country ?? "uae")
+        form.append("country", country ?? "qatar")
         if (messageText.trim()) form.append("question", messageText);
         const payload = await apiClient.postForm(`/chats/${chatId}/identify-sign`, form, token);
         const assistantData = payload.data as ChatMessageModel & { generation_time_seconds?: number };
@@ -653,7 +664,7 @@ export function Chat() {
 
       } else if (mode === "name") {
         // ── Name the sign → find-sign (BGE-M3 catalog search, no LLM) ──────
-        const payload = await apiClient.post(`/chats/${chatId}/find-sign`, { question: messageText, country: country ?? "uae" }, token);
+        const payload = await apiClient.post(`/chats/${chatId}/find-sign`, { question: messageText, country: country ?? "qatar" }, token);
         const assistantData = payload.data as ChatMessageModel & { generation_time_seconds?: number };
         assistantData.images = await resolveImages(assistantData.images);
 
@@ -724,7 +735,7 @@ export function Chat() {
 
         for await (const event of streamSSE(
           `/chats/${chatId}/stream`,
-          { chat_id: chatId, question: messageText, country: country ?? "uae", use_rag: true, context: contextForApi },
+          { chat_id: chatId, question: messageText, country: country ?? "qatar", use_rag: true, context: contextForApi },
           token
         )) {
           if (event.type === "token") {
