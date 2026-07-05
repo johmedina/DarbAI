@@ -234,6 +234,7 @@ export function Chat() {
           const session = data.data as ChatSession;
           const imageMap = await resolveSessionImages(session);
           setMessages(sessionToMessages(session, imageMap));
+          setCountry((data.data as any).country ?? null);
           loadedChatIdRef.current = urlChatId;
         }
       } catch {
@@ -555,6 +556,7 @@ export function Chat() {
     streamingIdxRef.current = -1;
 
     const chatId = selectedChatId ?? uuidv4();
+    const isNewChat = !selectedChatId;
 
     if (!selectedChatId) {
       loadedChatIdRef.current = chatId;
@@ -661,6 +663,9 @@ export function Chat() {
           return [...prev, { ...assistantData, versions: [v1], activeVersionIdx: 0 }];
         });
         pushToSidebar(assistantData);
+        if (isNewChat && country) {
+          apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => {})
+        }
 
       } else if (mode === "name") {
         // ── Name the sign → find-sign (BGE-M3 catalog search, no LLM) ──────
@@ -690,6 +695,9 @@ export function Chat() {
           return [...prev, { ...assistantData, versions: [v1], activeVersionIdx: 0 }];
         });
         pushToSidebar(assistantData);
+        if (isNewChat && country) {
+          apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => {})
+        }
 
       } else if (capturedImage) {
         // ── Ask + image → non-streaming (streaming doesn't return sign images yet) ─
@@ -727,6 +735,9 @@ export function Chat() {
           return [...prev, { ...assistantData, versions: [v1], activeVersionIdx: 0 }];
         });
         pushToSidebar(assistantData);
+        if (isNewChat && country) {
+          apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => {})
+        }
 
       } else {
         // ── Ask text-only → SSE token-by-token streaming ─────────────────────
@@ -839,6 +850,9 @@ export function Chat() {
             pushToSidebar(doneMsg);
             setIsLoading(false);
             streamingIdxRef.current = -1;
+            if (isNewChat && country) {
+              apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => {})
+            }
             break;
 
           } else if (event.type === "error") {
@@ -948,7 +962,7 @@ export function Chat() {
           <ModeSwitch mode={mode} onMode={(id) => { setMode(id); handleNewChat(); }} />
 
           {/* Country badge — shows in header once a country is selected and chat has started */}
-          {activeCountry && !empty && (
+          {activeCountry && (
             <div style={{
               display: "inline-flex",
               alignItems: "center",
