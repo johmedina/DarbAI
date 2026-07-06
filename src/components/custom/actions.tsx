@@ -4,6 +4,7 @@ import { ChatMessageModel, ResponseVersion, Feedback, FeedbackType } from "../..
 import { OverlayTrigger, Tooltip } from "react-bootstrap"
 import { BookOpen } from "lucide-react"
 import { DislikeFeedbackModal } from "./dislike-feedback-modal"
+import { MessageActionsMenu } from "./message-actions-menu"
 
 const RELIABILITY_THRESHOLD = -0.120;
 
@@ -31,6 +32,8 @@ interface MessageActionsProps {
   onVersionChange?: (idx: number) => void
   feedback?: Feedback | null
   onFeedback?: (type: FeedbackType, reason?: string, customReason?: string) => void
+  sourceText: string
+  onTranslated?: (translatedText: string, languageCode: string, sourceLanguageCode: string) => void
 }
 
 export function MessageActions({
@@ -44,6 +47,8 @@ export function MessageActions({
   onVersionChange,
   feedback = null,
   onFeedback,
+  sourceText,
+  onTranslated,
 }: MessageActionsProps) {
   const [copied, setCopied] = useState(false)
   const [showDislikeModal, setShowDislikeModal] = useState(false)
@@ -158,6 +163,7 @@ export function MessageActions({
           : <Copy size={15} />}
       </button>
 
+
       {/* Thumbs up — clicking while already liked toggles it off */}
       <button
         style={{
@@ -265,6 +271,17 @@ export function MessageActions({
         }}>
           {genTime.toFixed(1)}s
         </span>
+      )}
+
+      {/* More actions menu — Translate today, more items later */}
+      {!isRegenerating && sourceText && onTranslated && (
+        <MessageActionsMenu
+          sourceText={sourceText}
+          iconBtnStyle={iconBtn}
+          onHover={onHover}
+          onUnhover={onUnhover}
+          onTranslated={onTranslated}
+        />
       )}
 
       {/* Reliability chip — UQ entry point */}

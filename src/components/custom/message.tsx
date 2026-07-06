@@ -1,6 +1,6 @@
 // message.tsx
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { SparklesIcon } from "./icons"
 import { Markdown } from "./markdown"
@@ -13,6 +13,7 @@ import {
 import { MessageActions } from "@/components/custom/actions"
 import { ModalUQ } from "@/pages/chat/ModalUQ"
 import { ModalSources } from '@/pages/chat/ModalSources'
+import { languageLabel } from "@/lib/translation"
 
 interface PreviewMessageProps {
   message: ChatMessageModel
@@ -41,6 +42,11 @@ export const PreviewMessage = ({
   const [showSourcesModal, setShowSourcesModal] = useState(false)
   const isStreaming = (message as any).is_streaming
 
+  // Translation exists only in this component's state — never persisted,
+  // never written back to `message`, and cleared on refresh or when the
+  // underlying text changes (new message, regenerate, version switch).
+  const [translation, setTranslation] = useState<{ text: string; languageCode: string; sourceLanguageCode: string } | null>(null)
+
   const versions: ResponseVersion[] = message.versions ?? []
   const activeIdx = message.activeVersionIdx ?? 0
   const activeVer = versions.length > 0 ? versions[activeIdx] : null
@@ -49,6 +55,10 @@ export const PreviewMessage = ({
   const displayText = isStreaming
     ? message.message
     : (activeVer?.message ?? message.message)
+
+  useEffect(() => {
+    setTranslation(null)
+  }, [displayText])
 
   // UQ data comes from the active version when available
   const displayTokenData    = activeVer?.token_data                        ?? message.token_data
@@ -172,6 +182,24 @@ export const PreviewMessage = ({
               <Markdown>{displayText}</Markdown>
             </div>
 
+            {translation && (
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px dashed var(--line)" }}>
+                <div style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--ink)" }}>
+                  <Markdown>{translation.text}</Markdown>
+                </div>
+                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--ink-3)" }}>
+                  <span>Translated from {languageLabel(translation.sourceLanguageCode)}</span>
+                  <button
+                    onClick={() => setTranslation(null)}
+                    style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer",
+                      fontSize: 12.5, color: "var(--accent)", textDecoration: "underline" }}
+                  >
+                    Show original
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Actions — shown only once streaming is done */}
             {!isStreaming && (
               <MessageActions
@@ -186,6 +214,10 @@ export const PreviewMessage = ({
                 feedback={activeVer?.feedback}
                 onFeedback={(type, reason, customReason) =>
                   onFeedback?.(message.message_id!, activeVer?.version_num ?? 1, type, reason, customReason)
+                }
+                sourceText={displayText}
+                onTranslated={(text, languageCode, sourceLanguageCode) =>
+                  setTranslation({ text, languageCode, sourceLanguageCode })
                 }
               />
             )}
