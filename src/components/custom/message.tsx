@@ -183,8 +183,8 @@ export const PreviewMessage = ({
             </div>
 
             {translation && (
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px dashed var(--line)" }}>
-                <div style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--ink)" }}>
+              <div style={{ marginTop: 8, paddingTop: 10, borderTop: "1px dashed var(--line)" }}>
+                <div style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--ink-3)" }}>
                   <Markdown>{translation.text}</Markdown>
                 </div>
                 <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--ink-3)" }}>
