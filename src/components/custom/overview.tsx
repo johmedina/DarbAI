@@ -1,8 +1,13 @@
 import { useRef } from "react";
-import { CreditCard, Wind, AlertTriangle, Car, Search } from "lucide-react";
+import { CreditCard, Wind, AlertTriangle, Car, Search, Globe } from "lucide-react";
 import logo from "@/assets/images/logo.png";
 import { ChatMode, MODES } from "./mode-switch";
 
+export interface CountryOption {
+  code: string
+  name: string
+  flag: string
+}
 const ASK_SUGGESTIONS = [
   {
     Icon: CreditCard,
@@ -32,11 +37,14 @@ const ASK_SUGGESTIONS = [
 
 interface OverviewProps {
   mode?: ChatMode;
+  country: string | null;
+  countries: CountryOption[];
+  onSelectCountry: (code: string) => void;
   onSuggest?: (text: string) => void;
   onAttachImage?: (file: File) => void;
 }
 
-export const Overview = ({ mode = "ask", onSuggest, onAttachImage }: OverviewProps) => {
+export const Overview = ({ mode = "ask", country, countries, onSelectCountry, onSuggest, onAttachImage }: OverviewProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const m = MODES[mode];
 
@@ -64,8 +72,76 @@ export const Overview = ({ mode = "ask", onSuggest, onAttachImage }: OverviewPro
         {m.welcomeSub}
       </p>
 
+      {/* Country gate — big picker before a country is chosen, compact
+          "rule set" summary once one is. Suggestions/upload/examples below
+          only ever render once a country is set. */}
+      {!country ? (
+        <div style={{ marginTop: 28, width: "100%", maxWidth: 480 }}>
+          <div style={{ fontSize: 15, fontWeight: 650, color: "var(--ink)", marginBottom: 4 }}>
+            🌐 Which country's rules?
+          </div>
+          <p style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.5, marginBottom: 16 }}>
+            Salama now has road materials for {countries.length} countries. Choose one to use its official rules for this chat.
+          </p>
+          <div style={{ position: "relative", width: "100%" }}>
+            <select
+              value=""
+              onChange={(e) => e.target.value && onSelectCountry(e.target.value)}
+              style={{
+                appearance: "none", width: "100%",
+                padding: "13px 40px 13px 16px", borderRadius: 12,
+                border: "1px solid var(--road)", background: "var(--surface)",
+                color: "var(--ink)", fontSize: 14.5, fontWeight: 600,
+                cursor: "pointer", outline: "none",
+              }}
+            >
+              <option value="">Select country</option>
+              {countries.map((c) => (
+                <option key={c.code} value={c.code}>{c.flag}  {c.name}</option>
+              ))}
+            </select>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+              stroke="var(--ink-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          marginTop: 24, display: "inline-flex", alignItems: "center", gap: 14,
+          padding: "10px 10px 10px 18px", borderRadius: 14,
+          border: "1px solid var(--line)", background: "var(--surface)",
+        }}>
+          <span style={{ fontSize: 20 }}>
+            {countries.find((c) => c.code === country)?.flag}
+          </span>
+          <span style={{ textAlign: "left" }}>
+            <span style={{ display: "block", fontSize: 10.5, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--ink-3)" }}>
+              Rule set
+            </span>
+            <span style={{ display: "block", fontSize: 14.5, fontWeight: 650, color: "var(--ink)" }}>
+              {countries.find((c) => c.code === country)?.name}
+            </span>
+          </span>
+          <button
+            onClick={() => onSelectCountry("")}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "7px 12px", borderRadius: 10,
+              border: "1px solid var(--line)", background: "var(--surface-2)",
+              color: "var(--ink)", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            <Globe size={13} />
+            Change
+          </button>
+        </div>
+      )}
+
       {/* ASK — suggestion grid */}
-      {mode === "ask" && (
+      {country && mode === "ask" && (
         <div style={{
           display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12,
           marginTop: 32, width: "100%", maxWidth: 620,
@@ -100,7 +176,7 @@ export const Overview = ({ mode = "ask", onSuggest, onAttachImage }: OverviewPro
       )}
 
       {/* READ — big upload dropzone */}
-      {mode === "read" && (
+      {country && mode === "read" && (
         <div style={{ marginTop: 28, width: "100%", maxWidth: 440, display: "flex", flexDirection: "column", gap: 12 }}>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{ display: "none" }} />
           <button
@@ -130,7 +206,7 @@ export const Overview = ({ mode = "ask", onSuggest, onAttachImage }: OverviewPro
       )}
 
       {/* NAME — description example chips */}
-      {mode === "name" && (
+      {country && mode === "name" && (
         <div style={{ marginTop: 28, width: "100%", maxWidth: 560 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 12 }}>
             EXAMPLES

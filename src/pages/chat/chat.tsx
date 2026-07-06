@@ -19,7 +19,7 @@ import { Sidebar, ChatSession, HistoryMessage } from "@/components/custom/sideba
 import { ThemeToggle } from "@/components/custom/theme-toggle";
 import { ModeSwitch, ChatMode, MODES } from "@/components/custom/mode-switch";
 import { v4 as uuidv4 } from "uuid";
-import { PanelLeftIcon, LogOutIcon } from "lucide-react";
+import { PanelLeftIcon, LogOutIcon, Lock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiClient, API_BASE, streamSSE } from "@/lib/apiClient";
 import { toast } from "sonner";
@@ -914,6 +914,10 @@ export function Chat() {
   const streamingPlaceholder = messages.find((m) => (m as any).is_streaming);
   const showThinking = isLoading && !streamingPlaceholder?.message;
   const activeCountry = COUNTRIES.find(c => c.code === country)
+  // Selectable in the header until the chat actually starts; then fixed for
+  // the rest of this chat (matches what's already sent to the backend once
+  // messages exist — see the `isNewChat && country` patch calls above).
+  const countryLocked = !empty
 
   return (
     <div style={{ display: "flex", height: "100dvh", overflow: "hidden", background: "var(--bg)" }}>
@@ -961,27 +965,54 @@ export function Chat() {
 
           <ModeSwitch mode={mode} onMode={(id) => { setMode(id); handleNewChat(); }} />
 
-          {/* Country badge — shows in header once a country is selected and chat has started */}
-          {activeCountry && (
-            <div style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "4px 10px",
-              borderRadius: 99,
-              background: "var(--surface-2)",
-              border: "1px solid var(--line)",
-              fontSize: 12.5,
-              fontWeight: 500,
-              color: "var(--ink-2)",
-              marginLeft: 4,
-              flexShrink: 0,
-            }}>
-              <span>{activeCountry.flag}</span>
-              <span>{activeCountry.name}</span>
+          {/* Country selector — a pill in the header. Changeable up until the
+              first message is sent; locked (padlock, no dropdown) after. */}
+          {countryLocked ? (
+            activeCountry && (
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "4px 10px", borderRadius: 99,
+                background: "var(--surface-2)", border: "1px solid var(--line)",
+                fontSize: 12.5, fontWeight: 600, color: "var(--ink-2)",
+                marginLeft: 4, flexShrink: 0,
+              }}>
+                <span style={{ fontSize: 11, fontWeight: 700 }}>{activeCountry.code.toUpperCase()}</span>
+                <span>{activeCountry.name}</span>
+                <Lock size={11} style={{ color: "var(--ink-3)" }} />
+              </div>
+            )
+          ) : (
+            <div style={{ position: "relative", display: "inline-flex", alignItems: "center", marginLeft: 4, flexShrink: 0 }}>
+              <select
+                value={country ?? ""}
+                onChange={e => setCountry(e.target.value || null)}
+                style={{
+                  appearance: "none",
+                  padding: "4px 26px 4px 10px",
+                  borderRadius: 99,
+                  border: `1px solid ${country ? "var(--line)" : "var(--road)"}`,
+                  background: country ? "var(--surface-2)" : "transparent",
+                  color: country ? "var(--ink-2)" : "var(--road)",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  outline: "none",
+                }}
+              >
+                <option value="">Select country</option>
+                {COUNTRIES.map(c => (
+                  <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+                ))}
+              </select>
+              <svg
+                width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+                style={{ position: "absolute", right: 8, pointerEvents: "none", color: country ? "var(--ink-3)" : "var(--road)" }}
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
             </div>
           )}
-
           <div style={{ flex: 1 }} />
 
           <ThemeToggle />
@@ -1018,48 +1049,14 @@ export function Chat() {
             <>
               <Overview
                 mode={mode}
+                country={country}
+                countries={COUNTRIES}
+                onSelectCountry={(code) => setCountry(code || null)}
                 onSuggest={(text) => handleSubmit(text)}
                 onAttachImage={(file) => setImage(file)}
               />
-
-              {/* Country dropdown — same page as Overview, above the input */}
-              <div style={{ display: "flex", justifyContent: "center", padding: "0 0 8px" }}>
-                <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-                  <select
-                    value={country ?? ""}
-                    onChange={e => setCountry(e.target.value || null)}
-                    style={{
-                      appearance: "none",
-                      padding: "9px 36px 9px 14px",
-                      borderRadius: 10,
-                      border: `1px solid ${country ? "var(--ink-3)" : "var(--line)"}`,
-                      background: "var(--surface-2)",
-                      color: country ? "var(--ink)" : "var(--ink-3)",
-                      fontSize: 13.5,
-                      fontWeight: 500,
-                      cursor: "pointer",
-                      outline: "none",
-                      minWidth: 220,
-                    }}
-                  >
-                    <option value="">🌍 Select a country...</option>
-                    {COUNTRIES.map(c => (
-                      <option key={c.code} value={c.code}>{c.flag}  {c.name}</option>
-                    ))}
-                  </select>
-                  {/* chevron icon */}
-                  <svg
-                    width="14" height="14" viewBox="0 0 24 24" fill="none"
-                    stroke="var(--ink-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                    style={{ position: "absolute", right: 11, pointerEvents: "none" }}
-                  >
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
-                </div>
-              </div>
             </>
           )}
-
           {messages.map((msg, i) => (
             <PreviewMessage
               key={i}
