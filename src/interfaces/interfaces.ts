@@ -210,6 +210,7 @@ export interface ChatModel {
     versions?: ResponseVersion[]          // all saved versions (v1 = original)
     activeVersionIdx?: number             // 0-based index into versions[]
     rag_sources?: RagSource[]
+    follow_up_questions?: string[] | null
   }
   
   export interface ChatMessageFileModel {

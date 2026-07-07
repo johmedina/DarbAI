@@ -19,7 +19,7 @@ const MODES_I18N = {
       placeholder: "Attach a sign photo — add a note if you like",
     },
     name: {
-      id: "name", icon: "search", label: "Name the sign", sub: "Describe → see it",
+      id: "name", icon: "search", label: "Name the sign", sub: "Describe → official sign",
       welcomeTitle: "Describe a sign",
       welcomeSub: "Describe what you remember and Salama returns the matching official sign — image, name and what it means.",
       placeholder: "Describe the sign you have in mind…",

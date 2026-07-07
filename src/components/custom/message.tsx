@@ -26,9 +26,12 @@ interface PreviewMessageProps {
     reason?: string,
     customReason?: string
   ) => void;
+
+  onFollowUp?: (question: string) => void;
   
   isRegenerating?: boolean
   onVersionChange?: (idx: number) => void
+  isLatestMessage?: boolean
 }
 
 export const PreviewMessage = ({
@@ -37,6 +40,8 @@ export const PreviewMessage = ({
   isRegenerating = false,
   onVersionChange,
   onFeedback,
+  onFollowUp,
+  isLatestMessage = false,
 }: PreviewMessageProps) => {
   const [showUQModal, setShowUQModal] = useState(false)
   const [showSourcesModal, setShowSourcesModal] = useState(false)
@@ -220,6 +225,49 @@ export const PreviewMessage = ({
                   setTranslation({ text, languageCode, sourceLanguageCode })
                 }
               />
+            )}
+
+            {/* Follow-up question suggestions */}
+            {!isStreaming && isLatestMessage && message.follow_up_questions && message.follow_up_questions.length > 0 && !isRegenerating && (
+              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 7 }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: ".06em",
+                  textTransform: "uppercase", color: "var(--ink-3)",
+                }}>
+                  Suggested follow-ups
+                </span>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                  {message.follow_up_questions.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={() => onFollowUp?.(q)}
+                      style={{
+                        padding: "7px 13px",
+                        borderRadius: 11,
+                        border: "1px solid var(--line)",
+                        background: "var(--surface-2)",
+                        color: "var(--ink-2)",
+                        fontSize: 13,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "background .15s, border-color .15s, color .15s",
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = "var(--surface)"
+                        e.currentTarget.style.borderColor = "var(--ink-3)"
+                        e.currentTarget.style.color = "var(--ink)"
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = "var(--surface-2)"
+                        e.currentTarget.style.borderColor = "var(--line)"
+                        e.currentTarget.style.color = "var(--ink-2)"
+                      }}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
