@@ -33,7 +33,7 @@ export const MODES: Record<ChatMode, {
   name: {
     Icon: Search,
     label: "Name the sign",
-    sub: "Describe → see it",
+    sub: "Describe → official sign",
     welcomeTitle: "Describe a sign",
     welcomeSub: "Describe what you remember and Salama returns the matching official sign — image, name and what it means.",
     placeholder: "Describe the sign you have in mind…",

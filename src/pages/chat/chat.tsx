@@ -100,6 +100,7 @@ function sessionToMessages(
         })),
         token_data: (m as any).token_data ?? [],
         rag_sources: (m as any).rag_sources ?? [],
+        follow_up_questions: (m as any).follow_up_questions ?? null,
         versions,
         activeVersionIdx: versions.length - 1,
       } as ChatMessageModel,
@@ -850,6 +851,25 @@ export function Chat() {
             pushToSidebar(doneMsg);
             setIsLoading(false);
             streamingIdxRef.current = -1;
+
+            // Fire-and-forget follow-up suggestion (non-blocking, fails silently)
+            if (doneMsg.message_id && country) {
+              apiClient.post(
+                `/follow-up-questions`,
+                { question: messageText, country: country ?? "qatar", message_id: doneMsg.message_id },
+                token
+              ).then(data => {
+                const qs: string[] = data?.data?.questions ?? []
+                if (qs.length > 0) {
+                  setMessages(prev => prev.map(m =>
+                    m.message_id === doneMsg.message_id
+                      ? { ...m, follow_up_questions: qs }
+                      : m
+                  ))
+                }
+              }).catch(() => {})
+            }
+
             if (isNewChat && country) {
               apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => {})
             }
@@ -1073,6 +1093,8 @@ export function Chat() {
                   : undefined
               }
               onFeedback={handleFeedback}
+              onFollowUp={(q) => handleSubmit(q)}
+              isLatestMessage={i === messages.length - 1}
             />
           ))}
           {isLoading && <ThinkingMessage elapsedSeconds={elapsedSeconds} />}
