@@ -34,6 +34,8 @@ interface MessageActionsProps {
   onFeedback?: (type: FeedbackType, reason?: string, customReason?: string) => void
   sourceText: string
   onTranslated?: (translatedText: string, languageCode: string, sourceLanguageCode: string) => void
+  followUpQuestions?: string[]
+  onFollowUp?: (question: string) => void
 }
 
 export function MessageActions({
@@ -49,6 +51,8 @@ export function MessageActions({
   onFeedback,
   sourceText,
   onTranslated,
+  followUpQuestions = [],
+  onFollowUp
 }: MessageActionsProps) {
   const [copied, setCopied] = useState(false)
   const [showDislikeModal, setShowDislikeModal] = useState(false)
@@ -281,6 +285,8 @@ export function MessageActions({
           onHover={onHover}
           onUnhover={onUnhover}
           onTranslated={onTranslated}
+          followUpQuestions={followUpQuestions}
+          onFollowUp={onFollowUp}
         />
       )}
 

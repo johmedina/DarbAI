@@ -224,6 +224,8 @@ export const PreviewMessage = ({
                 onTranslated={(text, languageCode, sourceLanguageCode) =>
                   setTranslation({ text, languageCode, sourceLanguageCode })
                 }
+                followUpQuestions={message.follow_up_questions ?? []}   // NEW — always passed
+                onFollowUp={onFollowUp}      
               />
             )}
 
