@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { CreditCard, Wind, AlertTriangle, Car, Search, Globe } from "lucide-react";
+import { CreditCard, Wind, AlertTriangle, Car, Search, Globe, HelpCircle } from "lucide-react";
 import logo from "@/assets/images/logo.png";
 import { ChatMode, MODES } from "./mode-switch";
 
@@ -8,32 +8,32 @@ export interface CountryOption {
   name: string
   flag: string
 }
-const ASK_SUGGESTIONS = [
-  {
-    Icon: CreditCard,
-    title: "Driving licenses",
-    sub: "What types exist in Qatar?",
-    action: "What are the different types of driving licenses in Qatar?",
-  },
-  {
-    Icon: Wind,
-    title: "Sandstorm driving",
-    sub: "How do I stay safe in Doha?",
-    action: "What should I remember when driving in a sandstorm in Doha?",
-  },
-  {
-    Icon: AlertTriangle,
-    title: "Warning lights",
-    sub: "Engine oil pressure is on",
-    action: "What action should I take if the engine oil pressure warning indicator is on?",
-  },
-  {
-    Icon: Car,
-    title: "License plate",
-    sub: "Where do I renew it?",
-    action: "Where should I go if I want to renew my car license plate?",
-  },
-];
+// const ASK_SUGGESTIONS = [
+//   {
+//     Icon: CreditCard,
+//     title: "Driving licenses",
+//     sub: "What types exist in Qatar?",
+//     action: "What are the different types of driving licenses in Qatar?",
+//   },
+//   {
+//     Icon: Wind,
+//     title: "Sandstorm driving",
+//     sub: "How do I stay safe in Doha?",
+//     action: "What should I remember when driving in a sandstorm in Doha?",
+//   },
+//   {
+//     Icon: AlertTriangle,
+//     title: "Warning lights",
+//     sub: "Engine oil pressure is on",
+//     action: "What action should I take if the engine oil pressure warning indicator is on?",
+//   },
+//   {
+//     Icon: Car,
+//     title: "License plate",
+//     sub: "Where do I renew it?",
+//     action: "Where should I go if I want to renew my car license plate?",
+//   },
+// ];
 
 interface OverviewProps {
   mode?: ChatMode;
@@ -42,9 +42,14 @@ interface OverviewProps {
   onSelectCountry: (code: string) => void;
   onSuggest?: (text: string) => void;
   onAttachImage?: (file: File) => void;
+  suggestedQuestions?: string[];
+  suggestionsLoading?: boolean;
 }
 
-export const Overview = ({ mode = "ask", country, countries, onSelectCountry, onSuggest, onAttachImage }: OverviewProps) => {
+export const Overview = ({
+  mode = "ask", country, countries, onSelectCountry, onSuggest, onAttachImage,
+  suggestedQuestions = [], suggestionsLoading = false,   // NEW
+}: OverviewProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const m = MODES[mode];
 
@@ -142,38 +147,26 @@ export const Overview = ({ mode = "ask", country, countries, onSelectCountry, on
 
       {/* ASK — suggestion grid */}
       {country && mode === "ask" && (
-        <div style={{
-          display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12,
-          marginTop: 32, width: "100%", maxWidth: 620,
-        }}>
-          {ASK_SUGGESTIONS.map(({ Icon, title, sub, action }, i) => (
-            <button
-              key={i}
-              onClick={() => onSuggest?.(action)}
-              className="sugg-card"
-              style={{
-                display: "flex", alignItems: "center", gap: 13, textAlign: "start",
-                padding: "15px 16px", borderRadius: 14,
-                border: "1px solid var(--line)", background: "var(--surface)",
-                cursor: "pointer",
-              }}
-            >
-              <span style={{
-                width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                background: "var(--surface-2)", border: "1px solid var(--line)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "var(--ink)",
-              }}>
-                <Icon size={18} />
-              </span>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: "block", fontSize: 14, fontWeight: 600, letterSpacing: "-.01em", color: "var(--ink)" }}>{title}</span>
-                <span style={{ display: "block", fontSize: 13, color: "var(--ink-2)", marginTop: 1 }}>{sub}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 32, width: "100%", maxWidth: 620 }}>
+    {suggestionsLoading
+      ? Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} style={{ height: 70, borderRadius: 14, border: "1px solid var(--line)", background: "var(--surface-2)", opacity: 0.5 }} />
+        ))
+      : suggestedQuestions.map((q, i) => (
+          <button key={i} onClick={() => onSuggest?.(q)} className="sugg-card" style={{
+            display: "flex", alignItems: "center", gap: 13, textAlign: "start",
+            padding: "15px 16px", borderRadius: 14, border: "1px solid var(--line)",
+            background: "var(--surface)", cursor: "pointer",
+          }}>
+            <span style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: "var(--surface-2)", border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink)" }}>
+              <HelpCircle size={18} />
+            </span>
+            <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-.01em", color: "var(--ink)" }}>{q}</span>
+          </button>
+        ))
+    }
+  </div>
+)}
 
       {/* READ — big upload dropzone */}
       {country && mode === "read" && (
