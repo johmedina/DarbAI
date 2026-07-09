@@ -246,6 +246,18 @@ export function Chat() {
     })();
   }, [urlChatId, token, navigate, resolveSessionImages]);
 
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!country || !token || messages.length > 0) return;   // only on the empty/new-chat screen
+    setSuggestionsLoading(true);
+    apiClient.get(`/suggested-questions?country=${country}`, token)
+      .then(data => setSuggestedQuestions(data?.data?.questions ?? []))
+      .catch(() => setSuggestedQuestions([]))
+      .finally(() => setSuggestionsLoading(false));
+  }, [country, token, messages.length]);
+
   async function handleFeedback(
     messageId: string,
     versionNum: number,
@@ -1143,6 +1155,8 @@ export function Chat() {
                 onSelectCountry={(code) => setCountry(code || null)}
                 onSuggest={(text) => handleSubmit(text)}
                 onAttachImage={(file) => setImage(file)}
+                suggestedQuestions={suggestedQuestions}
+                suggestionsLoading={suggestionsLoading}
               />
             </>
           )}
