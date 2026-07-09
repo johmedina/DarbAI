@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { ChevronDown, ChevronLeft, ChevronRight, Languages, Loader2, Search } from "lucide-react"
+import { ChevronDown, ChevronLeft, ChevronRight, Languages, Loader2, Search, HelpCircle } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useAuth } from "@/context/AuthContext"
 import { buildTargetLanguages, detectLanguage, languageLabel, translateText } from "@/lib/translation"
@@ -11,12 +11,14 @@ interface MessageActionsMenuProps {
   onUnhover: (e: React.MouseEvent<HTMLButtonElement>) => void
   disabled?: boolean
   onTranslated: (translatedText: string, languageCode: string, sourceLanguageCode: string) => void
+  followUpQuestions?: string[]
+  onFollowUp?: (question: string) => void
 }
 
 // Root menu view. Add more entries here for future message actions — each
 // just needs a row in the "root" render block below; only actions that need
 // their own picker (like Translate) need a "view" of their own.
-type View = "root" | "translate"
+type View = "root" | "translate" | "followup"
 
 type DetectState =
   | { status: "idle" }
@@ -37,6 +39,8 @@ export function MessageActionsMenu({
   onUnhover,
   disabled = false,
   onTranslated,
+  followUpQuestions = [],
+  onFollowUp,
 }: MessageActionsMenuProps) {
   const { token } = useAuth()
   const [open, setOpen] = useState(false)
@@ -85,6 +89,11 @@ export function MessageActionsMenu({
     }
   }
 
+  const handleSelectFollowUp = (q: string) => {
+    onFollowUp?.(q)
+    resetAndClose()
+  }
+
   const visibleTargets = useMemo(() => {
     if (detect.status !== "ready") return []
     if (!query.trim()) return detect.targets
@@ -108,6 +117,15 @@ export function MessageActionsMenu({
               Translate
               <ChevronRight size={14} style={{ marginLeft: "auto", color: "var(--ink-3)" }} />
             </button>
+
+            {followUpQuestions.length > 0 && (
+              <button style={rowStyle} onClick={() => setView("followup")}>
+                <HelpCircle size={14} />
+                Follow-up Questions
+                <ChevronRight size={14} style={{ marginLeft: "auto", color: "var(--ink-3)" }} />
+              </button>
+          )}
+
             {/* Future actions (e.g. "Read aloud", "Export") go here as more rows. */}
           </div>
         )}
@@ -177,6 +195,28 @@ export function MessageActionsMenu({
             )}
           </div>
         )}
+
+        {view === "followup" && (
+  <div>
+    <button
+      onClick={() => setView("root")}
+      style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", textAlign: "left",
+        padding: "6px 8px", borderRadius: 6, background: "none", border: "none",
+        cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "var(--ink-3)", marginBottom: 2 }}
+    >
+      <ChevronLeft size={13} />
+      Follow-up Questions
+    </button>
+
+    <div style={{ maxHeight: 220, overflowY: "auto" }}>
+      {followUpQuestions.map((q, i) => (
+        <button key={i} style={rowStyle} onClick={() => handleSelectFollowUp(q)}>
+          {q}
+        </button>
+      ))}
+    </div>
+  </div>
+)}
       </PopoverContent>
     </Popover>
   )

@@ -853,7 +853,7 @@ export function Chat() {
             streamingIdxRef.current = -1;
 
             // Fire-and-forget follow-up suggestion (non-blocking, fails silently)
-            if (doneMsg.message_id && country) {
+            if (doneMsg.message_id) {
               apiClient.post(
                 `/follow-up-questions`,
                 { question: messageText, country: country ?? "qatar", message_id: doneMsg.message_id },
