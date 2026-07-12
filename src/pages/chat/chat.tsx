@@ -1217,7 +1217,13 @@ export function Chat() {
             isLoading={isLoading || regeneratingIdx !== -1 || !country}
             image={image}
             setImage={setImage}
-            placeholder={country ? MODES[mode].placeholder : "Select a country above to start chatting..."}
+            placeholder={
+              !country
+                ? "Select a country above to start chatting..."
+                : mode === "ask"
+                ? `Ask about driving in ${activeCountry?.name ?? "your country"}…`
+                : MODES[mode].placeholder
+            }
             emphasizeAttach={mode === "read"}
           />
         </div>
