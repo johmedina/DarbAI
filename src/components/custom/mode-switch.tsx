@@ -24,7 +24,7 @@ export const MODES: Record<ChatMode, {
   },
   read: {
     Icon: ImageIcon,
-    label: "Read the sign",
+    label: "Identify the sign",
     sub: "Photo → meaning",
     welcomeTitle: "Read a road sign",
     welcomeSub: "Attach a photo of any Qatar road sign — Salama reads it, tells you what it means and what to do, with a trust score.",
@@ -32,7 +32,7 @@ export const MODES: Record<ChatMode, {
   },
   name: {
     Icon: Search,
-    label: "Name the sign",
+    label: "Describe the sign",
     sub: "Describe → official sign",
     welcomeTitle: "Describe a sign",
     welcomeSub: "Describe what you remember and Salama returns the matching official sign — image, name and what it means.",

@@ -61,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function clearToken() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem("selectedChatId");   // clear chat selection too
+    localStorage.removeItem("salama-mode");      // always start a fresh login on "Ask Salama"
     setToken(null);
     setUser(null);
   }
