@@ -148,6 +148,7 @@ export function Chat() {
 
   const loadedChatIdRef = useRef<string | null>(null);
   const streamingIdxRef = useRef<number>(-1);
+  const submittingRef = useRef(false);
 
   // Timer
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -236,6 +237,10 @@ export function Chat() {
           const imageMap = await resolveSessionImages(session);
           setMessages(sessionToMessages(session, imageMap));
           setCountry((data.data as any).country ?? null);
+          // Resync mode to this chat's stored mode so the selector never shows
+          // a previous chat's mode. Old chats saved before mode tracking
+          // existed fall back to "ask".
+          setMode(((data.data as any).mode as ChatMode) || "ask");
           loadedChatIdRef.current = urlChatId;
         }
       } catch {
@@ -320,6 +325,7 @@ export function Chat() {
   function handleSelectChat(session: ChatSession) {
     // setSidebarOpen(false);
     loadedChatIdRef.current = null;
+    if (session.mode) setMode(session.mode);
     navigate(`/chat/${session.chat_id}`);
   }
 
@@ -554,7 +560,9 @@ export function Chat() {
 
   // ── Send message ──────────────────────────────────────────────────────────
   async function handleSubmit(text?: string) {
-    if (isLoading || !token) return;
+    if (isLoading || !token || submittingRef.current) return;
+
+
     const messageText = text ?? question;
 
     if (mode === "read") {
@@ -565,6 +573,7 @@ export function Chat() {
       if (!messageText.trim() && !image) return;
     }
 
+    submittingRef.current = true;
     setIsLoading(true);
     streamingIdxRef.current = -1;
 
@@ -729,6 +738,10 @@ export function Chat() {
             if (isNewChat && country) {
               apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { });
             }
+            if (isNewChat) {
+              apiClient.patch(`/chats/${chatId}/mode`, { mode }, token).catch(() => { });
+            }
+
             break;
 
           } else if (event.type === "error") {
@@ -780,6 +793,9 @@ export function Chat() {
         if (isNewChat && country) {
           apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { })
         }
+        if (isNewChat) {
+          apiClient.patch(`/chats/${chatId}/mode`, { mode }, token).catch(() => { })
+        }
 
       } else if (capturedImage) {
         // ── Ask + image → non-streaming (streaming doesn't return sign images yet) ─
@@ -820,6 +836,9 @@ export function Chat() {
         if (isNewChat && country) {
           apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { })
         }
+        if (isNewChat) {
+          apiClient.patch(`/chats/${chatId}/mode`, { mode }, token).catch(() => { })
+        }
 
       } else {
         // ── Ask text-only → SSE token-by-token streaming ─────────────────────
@@ -831,6 +850,7 @@ export function Chat() {
           { chat_id: chatId, question: messageText, country: country ?? "qatar", use_rag: true, context: contextForApi },
           token
         )) {
+          console.log("SSE event:", event.type, event);
           if (event.type === "token") {
             streamText += (event.content as string) ?? "";
 
@@ -954,6 +974,9 @@ export function Chat() {
             if (isNewChat && country) {
               apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { })
             }
+            if (isNewChat) {
+              apiClient.patch(`/chats/${chatId}/mode`, { mode }, token).catch(() => { })
+            }
             break;
 
           } else if (event.type === "error") {
@@ -1007,6 +1030,7 @@ export function Chat() {
     } finally {
       setIsLoading(false);
       streamingIdxRef.current = -1;
+      submittingRef.current = false;
     }
   }
 
