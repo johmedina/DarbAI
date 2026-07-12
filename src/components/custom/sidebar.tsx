@@ -33,6 +33,7 @@ export interface HistoryMessage {
 export interface ChatSession {
   chat_id: string;
   title: string;
+  mode?: ChatMode;
   last_updated: string;
   messages: HistoryMessage[];
 }
