@@ -11,9 +11,11 @@ import {
   ResponseVersion,
 } from "../../interfaces/interfaces"
 import { MessageActions } from "@/components/custom/actions"
+import { LazyImage } from "@/components/custom/lazy-image"
 import { ModalUQ } from "@/pages/chat/ModalUQ"
 import { ModalSources } from '@/pages/chat/ModalSources'
 import { languageLabel } from "@/lib/translation"
+import { useAuth } from "@/context/AuthContext"
 
 interface PreviewMessageProps {
   message: ChatMessageModel
@@ -43,6 +45,7 @@ export const PreviewMessage = ({
   onFollowUp,
   isLatestMessage = false,
 }: PreviewMessageProps) => {
+  const { token } = useAuth()
   const [showUQModal, setShowUQModal] = useState(false)
   const [showSourcesModal, setShowSourcesModal] = useState(false)
   const isStreaming = (message as any).is_streaming
@@ -106,26 +109,31 @@ export const PreviewMessage = ({
             maxWidth: "78%",
             background: "var(--user-bubble)",
             color: "var(--user-ink)",
-            padding: message.chat_uploaded_files?.some(f => f.objectUrl) ? 6 : "11px 15px",
+            padding: message.chat_uploaded_files?.some(f => f.objectUrl || f.remoteUrl) ? 6 : "11px 15px",
             borderRadius: "16px 16px 4px 16px",
             fontSize: 15,
             lineHeight: 1.55,
           }}>
             {message.chat_uploaded_files?.map((f, i) =>
-              f.objectUrl ? (
-                <img
-                  key={i}
+              (f.objectUrl || f.remoteUrl) ? (
+                <LazyImage
+                  key={f.remoteUrl ?? f.objectUrl ?? i}
                   src={f.objectUrl}
+                  remoteSrc={f.remoteUrl}
+                  token={token}
+                  eager={f.eager ?? true}
                   alt="Uploaded"
-                  style={{
+                  imgStyle={{
                     display: "block", maxWidth: "min(300px, 72vw)", maxHeight: 240,
                     width: "auto", borderRadius: 12, objectFit: "cover",
                   }}
+                  placeholderWidth={220}
+                  placeholderHeight={165}
                 />
               ) : null
             )}
             {message.message && (
-              <div style={{ padding: message.chat_uploaded_files?.some(f => f.objectUrl) ? "9px 9px 4px" : 0 }}>
+              <div style={{ padding: message.chat_uploaded_files?.some(f => f.objectUrl || f.remoteUrl) ? "9px 9px 4px" : 0 }}>
                 {message.message}
               </div>
             )}
@@ -155,14 +163,20 @@ export const PreviewMessage = ({
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
                 {message.images.map((img) => (
                   <div key={img.sign_id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                    <img
-                      src={img.resolvedUrl ?? img.url}
+                    <LazyImage
+                      src={img.resolvedUrl}
+                      remoteSrc={img.resolvedUrl ? undefined : img.url}
+                      token={token}
+                      eager={img.eager ?? true}
                       alt={img.name}
-                      style={{
+                      imgStyle={{
                         height: 112, width: "auto", borderRadius: 12,
                         border: "1px solid var(--line)", objectFit: "contain",
                         background: "var(--surface-2)",
                       }}
+                      placeholderWidth={112}
+                      placeholderHeight={112}
+                      placeholderStyle={{ border: "1px solid var(--line)" }}
                     />
                     <span style={{ fontSize: 11.5, color: "var(--ink-3)", textAlign: "center", maxWidth: "7rem" }}>{img.name}</span>
                     <span style={{ fontSize: 10, color: "var(--ink-3)", opacity: 0.6 }}>p.{img.page}</span>
@@ -173,12 +187,18 @@ export const PreviewMessage = ({
 
             {/* Uploaded image in assistant context */}
             {message.chat_uploaded_files?.map((f, i) =>
-              f.objectUrl ? (
-                <img
-                  key={i}
+              (f.objectUrl || f.remoteUrl) ? (
+                <LazyImage
+                  key={f.remoteUrl ?? f.objectUrl ?? i}
                   src={f.objectUrl}
+                  remoteSrc={f.remoteUrl}
+                  token={token}
+                  eager={f.eager ?? true}
                   alt="Uploaded"
-                  className="max-h-64 w-auto rounded-lg object-contain mb-3"
+                  imgClassName="max-h-64 w-auto rounded-lg object-contain mb-3"
+                  placeholderWidth={220}
+                  placeholderHeight={165}
+                  placeholderStyle={{ marginBottom: 12 }}
                 />
               ) : null
             )}
