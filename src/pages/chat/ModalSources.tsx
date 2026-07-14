@@ -34,16 +34,24 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
     setPageIdx(0)
     setPages([])
 
+    const controller = new AbortController()
+
     fetch(`${API_BASE}/chats/${chatId}/messages/${messageId}/source-pages`, {
       headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
     })
       .then(r => r.json())
       .then(data => {
         // image_url is now a direct Azure SAS URL — no proxy fetch needed
         setPages(data.data ?? [])
       })
-      .catch(e => setError(String(e)))
-      .finally(() => setLoading(false))
+      .catch(e => { if (e.name !== 'AbortError') setError(String(e)) })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+
+    // React 18 StrictMode mounts effects twice in dev; aborting the
+    // in-flight request on cleanup stops the first (stale) call from
+    // completing so the source-pages endpoint isn't hit twice per click.
+    return () => controller.abort()
   }, [show, chatId, messageId, token])
 
   if (!show) return null
