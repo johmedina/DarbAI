@@ -11,9 +11,10 @@ interface ChatInputProps {
   setImage: (image: File | null) => void;
   placeholder?: string;
   emphasizeAttach?: boolean;
+  allowImage?: boolean;
 }
 
-export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, setImage, placeholder, emphasizeAttach }: ChatInputProps) => {
+export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, setImage, placeholder, emphasizeAttach, allowImage = true }: ChatInputProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
@@ -30,17 +31,20 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
+    if (!allowImage) return;
     e.preventDefault();
     dragCounterRef.current += 1;
     if (e.dataTransfer.types.includes('Files')) setIsDragging(true);
   };
   const handleDragLeave = (e: React.DragEvent) => {
+    if (!allowImage) return;
     e.preventDefault();
     dragCounterRef.current -= 1;
     if (dragCounterRef.current === 0) setIsDragging(false);
   };
-  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
+  const handleDragOver = (e: React.DragEvent) => { if (allowImage) e.preventDefault(); };
   const handleDrop = (e: React.DragEvent) => {
+    if (!allowImage) return;
     e.preventDefault();
     dragCounterRef.current = 0;
     setIsDragging(false);
@@ -98,7 +102,7 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
         )}
 
         {/* Image preview */}
-        {previewUrl && (
+        {allowImage && previewUrl && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 6px 0" }}>
             <div style={{ position: "relative", width: 52, height: 52, flexShrink: 0 }}>
               <img
@@ -130,29 +134,33 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
 
         {/* Input row */}
         <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: "none" }} />
+          {allowImage && (
+            <>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: "none" }} />
 
-          {/* Attach button */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading}
-            aria-label="Attach image"
-            title="Attach image"
-            style={{
-              width: 38, height: 38, borderRadius: 11, flexShrink: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: emphasizeAttach ? "var(--road-deep)" : "var(--ink-2)",
-              background: emphasizeAttach ? "var(--surface-2)" : "transparent",
-              border: emphasizeAttach ? "1px solid var(--line-2)" : "1px solid transparent",
-              cursor: "pointer",
-              transition: "background .15s, border-color .15s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; e.currentTarget.style.borderColor = "var(--line)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = emphasizeAttach ? "var(--surface-2)" : "transparent"; e.currentTarget.style.borderColor = emphasizeAttach ? "var(--line-2)" : "transparent"; }}
-          >
-            <PaperclipIcon size={18} />
-          </button>
+              {/* Attach button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+                aria-label="Attach image"
+                title="Attach image"
+                style={{
+                  width: 38, height: 38, borderRadius: 11, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: emphasizeAttach ? "var(--road-deep)" : "var(--ink-2)",
+                  background: emphasizeAttach ? "var(--surface-2)" : "transparent",
+                  border: emphasizeAttach ? "1px solid var(--line-2)" : "1px solid transparent",
+                  cursor: "pointer",
+                  transition: "background .15s, border-color .15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; e.currentTarget.style.borderColor = "var(--line)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = emphasizeAttach ? "var(--surface-2)" : "transparent"; e.currentTarget.style.borderColor = emphasizeAttach ? "var(--line-2)" : "transparent"; }}
+              >
+                <PaperclipIcon size={18} />
+              </button>
+            </>
+          )}
 
           {/* Textarea */}
           <textarea

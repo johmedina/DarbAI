@@ -145,6 +145,10 @@ export function Chat() {
   const [question, setQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [image, setImage] = useState<File | null>(null);
+  // Image attachment is only supported in "read" mode — drop any attached
+  // image when switching away so it can't silently ride along with a
+  // message submitted in another mode.
+  useEffect(() => { if (mode !== "read") setImage(null); }, [mode]);
   // Which assistant message index is currently being regenerated (-1 = none)
   const [regeneratingIdx, setRegeneratingIdx] = useState(-1)
 
@@ -1302,6 +1306,7 @@ export function Chat() {
                 : MODES[mode].placeholder
             }
             emphasizeAttach={mode === "read"}
+            allowImage={mode === "read"}
           />
         </div>
       </div>
