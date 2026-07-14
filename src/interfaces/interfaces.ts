@@ -76,10 +76,12 @@ export interface ChatModel {
   export interface ChatUploadedFile{
     id?: string
     objectUrl?: string
+    remoteUrl?: string          // raw authenticated path — lazy-resolved by LazyImage
     file?: File
     base64Url?: string
     type?: ChatUploadedFileType
     thumbnailBase64Url?: string
+    eager?: boolean              // load immediately instead of waiting for scroll
   }
   
   export interface ChatMessageToolCall {
@@ -156,6 +158,7 @@ export interface ChatModel {
     page: number
     url: string
     resolvedUrl?: string
+    eager?: boolean               // load immediately instead of waiting for scroll
   }
 
   export interface RagSource {

@@ -22,6 +22,7 @@ import { v4 as uuidv4 } from "uuid";
 import { PanelLeftIcon, LogOutIcon, Lock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiClient, API_BASE, streamSSE, streamSSEForm } from "@/lib/apiClient";
+import { toAuthenticatedBlobUrl } from "@/lib/imageCache";
 import { toast } from "sonner";
 
 // ── Countries ──────────────────────────────────────────────────────────────────
@@ -30,35 +31,31 @@ const COUNTRIES = [
   { code: "qatar", name: "Qatar", flag: "🇶🇦" },
 ]
 
-// ── Authenticated image loader ─────────────────────────────────────────────────
-const _blobCache = new Map<string, string>();
+// ── Eager image window ───────────────────────────────────────────────────────
+// Only the images belonging to the most recent EAGER_IMAGE_COUNT image-bearing
+// messages start fetching immediately when a chat opens. Everything older is
+// left for LazyImage to resolve on demand as the user scrolls up to it.
+const EAGER_IMAGE_COUNT = 3;
 
-async function toAuthenticatedBlobUrl(imagePath: string, token: string): Promise<string> {
-  if (_blobCache.has(imagePath)) return _blobCache.get(imagePath)!;
-  try {
-    const res = await fetch(`${API_BASE}${imagePath}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return "";
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    _blobCache.set(imagePath, url);
-    return url;
-  } catch {
-    // A failed image fetch (network hiccup, CORS, etc.) shouldn't take down
-    // the whole chat response — fall back to no resolved image for this one.
-    return "";
+function collectEagerImagePaths(session: ChatSession): Set<string> {
+  const eager = new Set<string>();
+  const msgs = session.messages;
+  for (let i = msgs.length - 1; i >= 0 && eager.size < EAGER_IMAGE_COUNT; i--) {
+    const m = msgs[i];
+    if (m.image_url) eager.add(m.image_url);
+    const signImgs = ((m as any).images ?? m.sign_images) as SignImage[] | undefined;
+    if (signImgs?.length) {
+      for (const img of signImgs) if (img.url) eager.add(img.url);
+    }
   }
+  return eager;
 }
 
 // ── Session → ChatMessageModel[] ──────────────────────────────────────────────
-function sessionToMessages(
-  session: ChatSession,
-  imageUrlMap: Record<string, string> = {}
-): ChatMessageModel[] {
-  return session.messages.flatMap((m: HistoryMessage) => {
-    const objectUrl = m.image_url ? (imageUrlMap[m.image_url] ?? undefined) : undefined;
+function sessionToMessages(session: ChatSession): ChatMessageModel[] {
+  const eagerPaths = collectEagerImagePaths(session);
 
+  return session.messages.flatMap((m: HistoryMessage) => {
     const rawVersions: ResponseVersion[] = (m as any).versions ?? []
     const versions: ResponseVersion[] = rawVersions.length > 0
       ? rawVersions
@@ -82,10 +79,12 @@ function sessionToMessages(
         message: m.question,
         role: ChatMessageRoleType.USER,
         chat_id: session.chat_id,
-        generation_type: objectUrl
+        generation_type: m.image_url
           ? ChatMessageGenerationType.IMAGE_UNDERSTANDING
           : ChatMessageGenerationType.TEXT,
-        ...(objectUrl ? { chat_uploaded_files: [{ objectUrl }] } : {}),
+        ...(m.image_url
+          ? { chat_uploaded_files: [{ remoteUrl: m.image_url, eager: eagerPaths.has(m.image_url) }] }
+          : {}),
       } as ChatMessageModel,
       {
         message_id: (m as any).message_id,
@@ -102,7 +101,7 @@ function sessionToMessages(
         generation_time_seconds: m.generation_time_seconds != null ? Number(m.generation_time_seconds) : null,
         images: ((m as any).images ?? m.sign_images)?.map((img: SignImage) => ({
           ...img,
-          resolvedUrl: imageUrlMap[img.url] ?? undefined,
+          eager: eagerPaths.has(img.url),
         })),
         token_data: (m as any).token_data ?? [],
         rag_sources: (m as any).rag_sources ?? [],
@@ -180,33 +179,6 @@ export function Chat() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isLoading]);
 
-  // ── Image resolution ──────────────────────────────────────────────────────
-  const resolveSessionImages = useCallback(
-    async (session: ChatSession): Promise<Record<string, string>> => {
-      if (!token) return {};
-      const map: Record<string, string> = {};
-      for (const msg of session.messages) {
-        // Resolve user-uploaded image
-        if (msg.image_url && !map[msg.image_url]) {
-          const blobUrl = await toAuthenticatedBlobUrl(msg.image_url, token);
-          if (blobUrl) map[msg.image_url] = blobUrl;
-        }
-        // Resolve AI response sign images
-        const signImgs = (msg as any).images ?? msg.sign_images;
-        if (signImgs?.length) {
-          for (const img of signImgs) {
-            if (img.url && !map[img.url]) {
-              const blobUrl = await toAuthenticatedBlobUrl(img.url, token);
-              if (blobUrl) map[img.url] = blobUrl;
-            }
-          }
-        }
-      }
-      return map;
-    },
-    [token]
-  );
-
   // ── Load history ──────────────────────────────────────────────────────────
   const loadHistory = useCallback(async () => {
     if (!token) return;
@@ -240,8 +212,9 @@ export function Chat() {
         const data = await apiClient.get(`/chats/${urlChatId}`, token);
         if (data.success) {
           const session = data.data as ChatSession;
-          const imageMap = await resolveSessionImages(session);
-          setMessages(sessionToMessages(session, imageMap));
+          // Render immediately with text — images resolve themselves lazily
+          // (LazyImage), so opening a chat never blocks on image fetches.
+          setMessages(sessionToMessages(session));
           setCountry((data.data as any).country ?? null);
           // Resync mode to this chat's stored mode so the selector never shows
           // a previous chat's mode. Old chats saved before mode tracking
@@ -255,7 +228,7 @@ export function Chat() {
         navigate("/", { replace: true });
       }
     })();
-  }, [urlChatId, token, navigate, resolveSessionImages]);
+  }, [urlChatId, token, navigate]);
 
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -1284,7 +1257,13 @@ export function Chat() {
           )}
           {messages.map((msg, i) => (
             <PreviewMessage
-              key={i}
+              // Keyed by chat_id + index rather than just index: switching to
+              // a different chat must force a full remount of every message
+              // (and its nested images) instead of reusing component
+              // instances at the same list position — otherwise a stale
+              // image from the previous chat can briefly render in the new
+              // one. Stable within a single chat across streaming updates.
+              key={`${msg.chat_id ?? "new"}-${i}`}
               message={msg}
               onRegenerate={
                 msg.role === ChatMessageRoleType.ASSISTANT

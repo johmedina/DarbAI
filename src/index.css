@@ -164,6 +164,26 @@
   .road-strip::after { animation: none; }
 }
 
+/* ── Lazy image placeholder ────────────────────────────────── */
+.img-skeleton {
+  position: relative;
+  overflow: hidden;
+}
+.img-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--line), transparent);
+  animation: img-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes img-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .img-skeleton::after { animation: none; }
+}
+
 /* ── Animations ────────────────────────────────────────────── */
 .fade-up { animation: fadeUp .5s cubic-bezier(.2,.7,.2,1) both; }
 @keyframes fadeUp {
