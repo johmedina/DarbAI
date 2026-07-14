@@ -225,6 +225,13 @@ export const PreviewMessage = ({
               </div>
             )}
 
+            {/* Fills the action bar's spot while streaming/post-processing so it doesn't just pop in */}
+            {isStreaming && message.message && (
+              <div style={{ display: "flex", alignItems: "center", marginTop: 12, height: 30 }}>
+                <div className="road-strip" style={{ height: 10, borderRadius: 99, width: 200, maxWidth: "60%" }} />
+              </div>
+            )}
+
             {/* Actions — shown only once streaming is done */}
             {!isStreaming && (
               <MessageActions
