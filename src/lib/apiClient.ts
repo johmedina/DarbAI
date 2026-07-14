@@ -40,7 +40,10 @@ async function request(
     body: isFormData ? (body as FormData) : body ? JSON.stringify(body) : undefined,
   });
 
-  const json = await res.json().catch(() => null);
+  const json = await res.json().catch((parseErr) => {
+    console.error(`res.json() failed for ${method} ${path}:`, parseErr);
+    return null;
+  });
 
   if (res.status === 401) {
     const isAuthEndpoint = path.startsWith("/auth/");
@@ -54,6 +57,13 @@ async function request(
 
   if (!res.ok) {
     throw new Error(json?.detail || json?.message || `Request failed with status ${res.status}`);
+  }
+
+  // A 2xx response with an unparsable/empty body is still a failure —
+  // never let call sites silently receive `null` and crash downstream
+  // with a confusing "Cannot read properties of null" error.
+  if (json === null) {
+    throw new Error(`Server returned an empty or invalid response for ${path}.`);
   }
 
   return json;
