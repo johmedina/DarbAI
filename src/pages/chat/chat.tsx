@@ -54,10 +54,12 @@ function collectEagerImagePaths(session: ChatSession): Set<string> {
 // ── Session → ChatMessageModel[] ──────────────────────────────────────────────
 function sessionToMessages(session: ChatSession): ChatMessageModel[] {
   const eagerPaths = collectEagerImagePaths(session);
+  const applyEager = (imgs?: SignImage[]): SignImage[] | undefined =>
+    imgs?.map((img) => ({ ...img, eager: eagerPaths.has(img.url) }))
 
   return session.messages.flatMap((m: HistoryMessage) => {
     const rawVersions: ResponseVersion[] = (m as any).versions ?? []
-    const versions: ResponseVersion[] = rawVersions.length > 0
+    const baseVersions: ResponseVersion[] = rawVersions.length > 0
       ? rawVersions
       : [{
         version_num: 1,
@@ -73,6 +75,13 @@ function sessionToMessages(session: ChatSession): ChatMessageModel[] {
         rag_sources: (m as any).rag_sources ?? [],
         feedback: (m as any).feedback ?? null,
       }]
+    // Backend versions carry raw sign_images with no `eager` flag — apply the
+    // same eager window used for the top-level mirror so switching versions
+    // doesn't force every one of that version's images to load immediately.
+    const versions: ResponseVersion[] = baseVersions.map((v) => ({
+      ...v,
+      images: applyEager(v.images),
+    }))
 
     return [
       {
@@ -99,10 +108,7 @@ function sessionToMessages(session: ChatSession): ChatMessageModel[] {
         total_glu: (m as any).total_glu ?? 0,
         total_logtoku: (m as any).total_logtoku ?? 0,
         generation_time_seconds: m.generation_time_seconds != null ? Number(m.generation_time_seconds) : null,
-        images: ((m as any).images ?? m.sign_images)?.map((img: SignImage) => ({
-          ...img,
-          eager: eagerPaths.has(img.url),
-        })),
+        images: applyEager((m as any).images ?? m.sign_images),
         token_data: (m as any).token_data ?? [],
         rag_sources: (m as any).rag_sources ?? [],
         follow_up_questions: (m as any).follow_up_questions ?? null,
@@ -823,7 +829,7 @@ export function Chat() {
               total_glu: (event.total_glu as number) ?? 0,
               total_logtoku: (event.total_logtoku as number) ?? 0,
               generation_time_seconds: (event.generation_time_seconds as number) ?? finalElapsed,
-              images: resolvedImages,
+              images: currentImages,
             };
 
             const doneMsg: ChatMessageModel & { generation_time_seconds?: number } = {
@@ -940,7 +946,7 @@ export function Chat() {
               total_glu: (event.total_glu as number) ?? 0,
               total_logtoku: (event.total_logtoku as number) ?? 0,
               generation_time_seconds: (event.generation_time_seconds as number) ?? finalElapsed,
-              images: resolvedImages,
+              images: currentImages,
             };
 
             const doneMsg: ChatMessageModel & { generation_time_seconds?: number } = {
