@@ -17,7 +17,7 @@ import { Overview } from "@/components/custom/overview";
 import { Header, LanguageToggle } from "@/components/custom/header";
 import { Sidebar, ChatSession, HistoryMessage } from "@/components/custom/sidebar";
 import { ThemeToggle } from "@/components/custom/theme-toggle";
-import { ModeSwitch, ChatMode, MODES } from "@/components/custom/mode-switch";
+import { ModeSwitch, ChatMode } from "@/components/custom/mode-switch";
 import { v4 as uuidv4 } from "uuid";
 import { PanelLeftIcon, LogOutIcon, Lock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -1135,7 +1135,7 @@ export function Chat() {
         >
           <button
             onClick={() => setSidebarOpen((o) => !o)}
-            aria-label={t.common.toggle_sidebar ?? "Toggle sidebar"}
+            aria-label={"Toggle sidebar"}
             style={{
               width: 36, height: 36, borderRadius: 9, flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",

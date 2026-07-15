@@ -1,3 +1,4 @@
+// SignupPage.tsx
 import { useState, FormEvent, InputHTMLAttributes } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -6,6 +7,7 @@ import logo from "@/assets/images/logo.png";
 import { useTheme } from "@/context/ThemeContext";
 import { hashPassword } from "@/lib/apiClient";
 import { useLanguage } from "@/context/LanguageContext";
+import { LanguageToggle } from "@/components/custom/header";
 
 export function SignupPage() {
   const { signup, isAuthenticated } = useAuth();
@@ -52,8 +54,9 @@ export function SignupPage() {
 
   return (
     <div style={{ height: "100vh", display: "flex", background: "var(--bg)", position: "relative", overflow: "hidden" }}>
-      {/* Theme toggle */}
-      <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}>
+      {/* Theme + language toggle */}
+      <div style={{ position: "absolute", top: 16, insetInlineEnd: 16, zIndex: 10, display: "flex", gap: 8 }}>
+        <LanguageToggle />
         <IconBtn onClick={toggleTheme} label={t.common.toggle_theme}>
           {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
         </IconBtn>
@@ -77,7 +80,7 @@ export function SignupPage() {
             {t.auth.salama_description}
           </p>
           <div style={{ marginTop: 30, display: "flex", gap: 26, flexWrap: "wrap" }}>
-            {[["Official", "traffic sources"], ["Trust score", "on every answer"], ["العربية", "& English"]].map(([a, b], i) => (
+            {[[t.common.welcome_text_1_top, t.common.welcome_text_1_bottom], [t.common.welcome_text_2_top, t.common.welcome_text_2_bottom], ["العربية", "& English"]].map(([a, b], i) => (
               <div key={i}>
                 <div style={{ fontSize: 17, fontWeight: 650, color: "#F2B705" }}>{a}</div>
                 <div style={{ fontSize: 12.5, color: "rgba(247,244,236,.55)", marginTop: 2 }}>{b}</div>
@@ -118,7 +121,7 @@ export function SignupPage() {
             <AuthField
               label={t.auth.username}
               type="text"
-              placeholder="john_doe"
+              placeholder="John Doe"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -129,7 +132,7 @@ export function SignupPage() {
             <AuthField
               label={t.auth.password}
               type="password"
-              placeholder="At least 8 characters"
+              placeholder={t.auth.password_placeholder}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -138,7 +141,7 @@ export function SignupPage() {
             <AuthField
               label={t.auth.confirm_password}
               type="password"
-              placeholder="••••••••"
+              placeholder={t.auth.password_placeholder}
               value={confirmPassword}
               onChange={(e) => setConfirm(e.target.value)}
               required

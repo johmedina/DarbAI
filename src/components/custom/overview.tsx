@@ -1,8 +1,10 @@
+// overview.tsx
 import { useRef } from "react";
 import { CreditCard, Wind, AlertTriangle, Car, Search, Globe, HelpCircle } from "lucide-react";
 import logo from "@/assets/images/logo.png";
 import { useLanguage } from '@/context/LanguageContext'
-import { ChatMode, MODES } from "./mode-switch";
+// import { ChatMode, MODES } from "./mode-switch";
+import { ChatMode, getModes } from "./mode-switch";
 
 export interface CountryOption {
   code: string
@@ -49,11 +51,12 @@ interface OverviewProps {
 
 export const Overview = ({
   mode = "ask", country, countries, onSelectCountry, onSuggest, onAttachImage,
-  suggestedQuestions = [], suggestionsLoading = false,   // NEW
+  suggestedQuestions = [], suggestionsLoading = false,
 }: OverviewProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
-  const m = MODES[mode];
-  const { t } = useLanguage();
+  const { t } = useLanguage();        // <-- moved up, must come before getModes(t)
+  const MODES = getModes(t);          // <-- new
+  const m = MODES[mode];              // <-- now safe, uses local MODES
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
