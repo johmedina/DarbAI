@@ -1,49 +1,60 @@
+// mode-switch.tsx
 import { useState } from "react";
 import { MessageSquare, Image as ImageIcon, Search, ChevronDown, Check } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 
 export type ChatMode = "ask" | "read" | "name";
 
 export const MODE_ORDER: ChatMode[] = ["ask", "read", "name"];
 
-export const MODES: Record<ChatMode, {
-  Icon: React.ComponentType<{ size?: number }>;
+const ICONS: Record<ChatMode, React.ComponentType<any>> = {
+  ask: MessageSquare,
+  read: ImageIcon,
+  name: Search,
+};
+
+export interface ModeInfo {
+  Icon: React.ComponentType<any>;
   label: string;
   sub: string;
   welcomeTitle: string;
   welcomeSub: string;
   placeholder: string;
   examples?: string[];
-}> = {
-  ask: {
-    Icon: MessageSquare,
-    label: "Ask Salama",
-    sub: "Driving, rules & safety",
-    welcomeTitle: "Your road-safety companion for Qatar",
-    welcomeSub: "Ask about licenses, road rules, signs and safe driving. Every answer comes with a trust score.",
-    placeholder: "Ask about driving in Qatar…",
-  },
-  read: {
-    Icon: ImageIcon,
-    label: "Identify the sign",
-    sub: "Photo → meaning",
-    welcomeTitle: "Read a road sign",
-    welcomeSub: "Attach a photo of any Qatar road sign — Salama reads it, tells you what it means and what to do, with a trust score.",
-    placeholder: "Attach a sign photo — add a note if you like",
-  },
-  name: {
-    Icon: Search,
-    label: "Describe the sign",
-    sub: "Describe → official sign",
-    welcomeTitle: "Describe a sign",
-    welcomeSub: "Describe what you remember and Salama returns the matching official sign — image, name and what it means.",
-    placeholder: "Describe the sign you have in mind…",
-    examples: [
-      "A red disc with a white horizontal bar",
-      "A red octagon with white letters",
-      "A triangle with three arrows in a ring",
-    ],
-  },
-};
+}
+
+// Build the mode metadata from live translations. Must be called from
+// inside a component (or another hook) that's rendered under
+// LanguageProvider — never at module scope.
+export function getModes(t: any): Record<ChatMode, ModeInfo> {
+  return {
+    ask: {
+      Icon: ICONS.ask,
+      label: t.mode.ask.label,
+      sub: t.mode.ask.sub,
+      welcomeTitle: t.mode.ask.welcomeTitle,
+      welcomeSub: t.mode.ask.welcomeSub,
+      placeholder: t.mode.ask.placeholder,
+    },
+    read: {
+      Icon: ICONS.read,
+      label: t.mode.read.label,
+      sub: t.mode.read.sub,
+      welcomeTitle: t.mode.read.welcomeTitle,
+      welcomeSub: t.mode.read.welcomeSub,
+      placeholder: t.mode.read.placeholder,
+    },
+    name: {
+      Icon: ICONS.name,
+      label: t.mode.name.label,
+      sub: t.mode.name.sub,
+      welcomeTitle: t.mode.name.welcomeTitle,
+      welcomeSub: t.mode.name.welcomeSub,
+      placeholder: t.mode.name.placeholder,
+      examples: t.mode.name.examples,
+    },
+  };
+}
 
 interface ModeSwitchProps {
   mode: ChatMode;
@@ -52,6 +63,9 @@ interface ModeSwitchProps {
 
 export function ModeSwitch({ mode, onMode }: ModeSwitchProps) {
   const [open, setOpen] = useState(false);
+  const { t } = useLanguage();
+  const MODES = getModes(t);
+
   const { Icon, label } = MODES[mode];
 
   return (

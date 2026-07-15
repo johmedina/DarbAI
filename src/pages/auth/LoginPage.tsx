@@ -1,3 +1,4 @@
+// LoginPage.tsx
 import { useState, FormEvent, InputHTMLAttributes } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -5,15 +6,18 @@ import { Loader2, Moon, Sun } from "lucide-react";
 import logo from "@/assets/images/logo.png";
 import { useTheme } from "@/context/ThemeContext";
 import { hashPassword } from "@/lib/apiClient";
+import { useLanguage } from "@/context/LanguageContext";
+import { LanguageToggle } from "@/components/custom/header";
 
 export function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
-  const [email, setEmail]       = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError]       = useState("");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   if (isAuthenticated) {
@@ -38,9 +42,10 @@ export function LoginPage() {
 
   return (
     <div style={{ height: "100vh", display: "flex", background: "var(--bg)", position: "relative", overflow: "hidden" }}>
-      {/* Theme toggle */}
-      <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}>
-        <IconBtn onClick={toggleTheme} label="Toggle theme">
+      {/* Theme + language toggle */}
+      <div style={{ position: "absolute", top: 16, insetInlineEnd: 16, zIndex: 10, display: "flex", gap: 8 }}>
+        <LanguageToggle />
+        <IconBtn onClick={toggleTheme} label={t.common.toggle_theme}>
           {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
         </IconBtn>
       </div>
@@ -54,16 +59,16 @@ export function LoginPage() {
           padding: "48px 52px", position: "relative", overflow: "hidden",
         }}
       >
-        <img src={logo} alt="Salama" style={{ height: 34, width: "auto", filter: "brightness(0) invert(1)" }} />
+        <img src={logo} alt={t.header.brand} style={{ height: 34, width: "auto", filter: "brightness(0) invert(1)" }} />
         <div style={{ maxWidth: 460 }}>
           <h1 style={{ fontSize: 40, lineHeight: 1.12, fontWeight: 650, letterSpacing: "-.03em" }}>
-            Drive Qatar's roads with confidence.
+            {t.auth.drive_qatar}
           </h1>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: "rgba(247,244,236,.66)", marginTop: 18, maxWidth: 420 }}>
-            Salama answers your driving, licensing and road-safety questions — and tells you exactly how much to trust every answer.
+            {t.auth.salama_description}
           </p>
           <div style={{ marginTop: 30, display: "flex", gap: 26, flexWrap: "wrap" }}>
-            {[["Official", "traffic sources"], ["Trust score", "on every answer"], ["العربية", "& English"]].map(([a, b], i) => (
+            {[[t.common.welcome_text_1_top, t.common.welcome_text_1_bottom], [t.common.welcome_text_2_top, t.common.welcome_text_2_bottom], ["العربية", "& English"]].map(([a, b], i) => (
               <div key={i}>
                 <div style={{ fontSize: 17, fontWeight: 650, color: "#F2B705" }}>{a}</div>
                 <div style={{ fontSize: 12.5, color: "rgba(247,244,236,.55)", marginTop: 2 }}>{b}</div>
@@ -79,10 +84,10 @@ export function LoginPage() {
       <div style={{ flex: "1 1 0", display: "flex", alignItems: "center", justifyContent: "center", padding: 28 }}>
         <div className="fade-up" style={{ width: "100%", maxWidth: 380 }}>
           <h2 style={{ fontSize: 26, fontWeight: 650, letterSpacing: "-.025em", color: "var(--ink)" }}>
-            Welcome back
+            {t.auth.welcome_back}
           </h2>
           <p style={{ fontSize: 14.5, color: "var(--ink-2)", marginTop: 6 }}>
-            Sign in to continue.
+            {t.auth.sign_in_to_continue}
           </p>
 
           {error && (
@@ -93,7 +98,7 @@ export function LoginPage() {
 
           <form onSubmit={handleSubmit} style={{ marginTop: 26, display: "flex", flexDirection: "column", gap: 16 }}>
             <AuthField
-              label="Email"
+              label={t.auth.email}
               type="email"
               placeholder="you@example.com"
               value={email}
@@ -102,7 +107,7 @@ export function LoginPage() {
               autoComplete="email"
             />
             <AuthField
-              label="Password"
+              label={t.auth.password}
               type="password"
               placeholder="••••••••"
               value={password}
@@ -123,14 +128,14 @@ export function LoginPage() {
                 opacity: isLoading ? 0.7 : 1, border: "none",
               }}
             >
-              {isLoading ? <><Loader2 size={16} className="spin" /> Signing in…</> : "Sign in"}
+              {isLoading ? <><Loader2 size={16} className="spin" /> {t.auth.signing_in}</> : t.auth.sign_in}
             </button>
           </form>
 
           <p style={{ marginTop: 22, fontSize: 14, color: "var(--ink-2)", textAlign: "center" }}>
-            Don't have an account?{" "}
+            {t.auth.dont_have_account}{" "}
             <Link to="/signup" style={{ fontWeight: 600, color: "var(--ink)", textUnderlineOffset: 3 }}>
-              Sign up
+              {t.auth.sign_up}
             </Link>
           </p>
         </div>

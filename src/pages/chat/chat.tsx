@@ -14,13 +14,14 @@ import {
   FeedbackType,
 } from "../../interfaces/interfaces";
 import { Overview } from "@/components/custom/overview";
-import { Header } from "@/components/custom/header";
+import { Header, LanguageToggle } from "@/components/custom/header";
 import { Sidebar, ChatSession, HistoryMessage } from "@/components/custom/sidebar";
 import { ThemeToggle } from "@/components/custom/theme-toggle";
-import { ModeSwitch, ChatMode, MODES } from "@/components/custom/mode-switch";
+import { ModeSwitch, ChatMode } from "@/components/custom/mode-switch";
 import { v4 as uuidv4 } from "uuid";
 import { PanelLeftIcon, LogOutIcon, Lock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { apiClient, API_BASE, streamSSE, streamSSEForm } from "@/lib/apiClient";
 import { toAuthenticatedBlobUrl } from "@/lib/imageCache";
 import { toast } from "sonner";
@@ -1244,6 +1245,8 @@ export function Chat() {
   // messages exist — see the `isNewChat && country` patch calls above).
   const countryLocked = !empty
 
+  const { t } = useLanguage();
+
   return (
     <div style={{ display: "flex", height: "100dvh", overflow: "hidden", background: "var(--bg)" }}>
       <Sidebar
@@ -1272,7 +1275,7 @@ export function Chat() {
         >
           <button
             onClick={() => setSidebarOpen((o) => !o)}
-            aria-label="Toggle sidebar"
+            aria-label={"Toggle sidebar"}
             style={{
               width: 36, height: 36, borderRadius: 9, flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -1324,7 +1327,7 @@ export function Chat() {
                   outline: "none",
                 }}
               >
-                <option value="">Select country</option>
+                <option value="">{t.modal.select_country_option}</option>
                 {COUNTRIES.map(c => (
                   <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
                 ))}
@@ -1341,6 +1344,7 @@ export function Chat() {
           <div style={{ flex: 1 }} />
 
           <ThemeToggle />
+          <LanguageToggle />
 
           {user && (
             <span style={{ fontSize: 12.5, color: "var(--ink-3)", display: "none" }} className="sm:block">
@@ -1425,10 +1429,10 @@ export function Chat() {
             setImage={setImage}
             placeholder={
               !country
-                ? "Select a country above to start chatting..."
+                ? t.common.select_country_above
                 : mode === "ask"
-                  ? `Ask about driving in ${activeCountry?.name ?? "your country"}…`
-                  : MODES[mode].placeholder
+                  ? t.chat.placeholder_ask_in.replace('{country}', activeCountry?.name ?? t.common.your_country)
+                  : (t.mode as any)[mode].placeholder
             }
             emphasizeAttach={mode === "read"}
             allowImage={mode === "read"}

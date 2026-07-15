@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Modal, Button, Form } from "react-bootstrap"
+import { useLanguage } from '@/context/LanguageContext'
 import { DISLIKE_REASONS } from "../../interfaces/interfaces"
 import "./dislike-feedback-modal.css";
 
@@ -12,6 +13,7 @@ interface DislikeFeedbackModalProps {
 }
 
 export function DislikeFeedbackModal({ show, onClose, onSubmit, initialReason = "", initialCustom = "" }: DislikeFeedbackModalProps) {
+  const { t } = useLanguage();
   const [selected, setSelected] = useState<string>(initialReason)
   const [customText, setCustomText] = useState<string>(initialCustom)
 
@@ -27,36 +29,36 @@ export function DislikeFeedbackModal({ show, onClose, onSubmit, initialReason = 
   return (
     <Modal show={show} onHide={onClose} centered>
       <Modal.Header closeButton>
-        <Modal.Title style={{ fontSize: 16 }}>Why wasn't this helpful?</Modal.Title>
+        <Modal.Title style={{ fontSize: 16 }}>{t.dislike.title}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
-          {DISLIKE_REASONS.map((reason) => (
-  <div className="form-check mb-2" key={reason}>
-    <input
-      className="form-check-input"
-      type="radio"
-      id={`dislike-reason-${reason}`}
-      name="dislike-reason"
-      checked={selected === reason}
-      onChange={() => setSelected(reason)}
-      style={{
-        accentColor: "#F2B705",
-      }}
-    />
-    <label
-      className="form-check-label"
-      htmlFor={`dislike-reason-${reason}`}
-    >
-      {reason}
-    </label>
-  </div>
-))}
+          {t.dislike.reasons.map((reason) => (
+            <div className="form-check mb-2" key={reason}>
+              <input
+                className="form-check-input"
+                type="radio"
+                id={`dislike-reason-${reason}`}
+                name="dislike-reason"
+                checked={selected === reason}
+                onChange={() => setSelected(reason)}
+                style={{
+                  accentColor: "#F2B705",
+                }}
+              />
+              <label
+                className="form-check-label"
+                htmlFor={`dislike-reason-${reason}`}
+              >
+                {reason}
+              </label>
+            </div>
+          ))}
           {isOther && (
             <Form.Control
               as="textarea"
               rows={3}
-              placeholder="Tell us more..."
+              placeholder={t.dislike.placeholder}
               value={customText}
               onChange={(e) => setCustomText(e.target.value)}
               className="mt-2"
@@ -65,18 +67,18 @@ export function DislikeFeedbackModal({ show, onClose, onSubmit, initialReason = 
         </Form>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline-secondary" onClick={onClose}>Cancel</Button>
+        <Button variant="outline-secondary" onClick={onClose}>{t.dislike.cancel}</Button>
         <Button
-  onClick={handleSubmit}
-  disabled={!selected}
-  style={{
-    backgroundColor: "#F2B705",
-    borderColor: "#F2B705",
-    color: "#000"
-  }}
->
-  Submit
-</Button>
+          onClick={handleSubmit}
+          disabled={!selected}
+          style={{
+            backgroundColor: "#F2B705",
+            borderColor: "#F2B705",
+            color: "#000"
+          }}
+        >
+          {t.dislike.submit}
+        </Button>
       </Modal.Footer>
     </Modal>
   )
