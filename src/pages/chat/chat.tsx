@@ -374,6 +374,27 @@ export function Chat() {
     })));
   }
 
+  // Fetches suggested follow-up questions for a just-completed "Ask Salama"
+  // response and attaches them to that message once ready. Non-blocking and
+  // fails silently, matching the backend endpoint's own contract — the
+  // message has already finished rendering by the time this resolves.
+  function fetchFollowUpQuestions(question: string, messageId: string | undefined) {
+    if (!token || !messageId) return
+    apiClient.post("/follow-up-questions", { question, country: country ?? "qatar", message_id: messageId }, token)
+      .then((res) => {
+        const questions: string[] = res?.data?.questions ?? []
+        if (!questions.length) return
+        setMessages((prev) => {
+          const idx = prev.findIndex((m) => m.message_id === messageId)
+          if (idx === -1) return prev
+          const updated = [...prev]
+          updated[idx] = { ...updated[idx], follow_up_questions: questions }
+          return updated
+        })
+      })
+      .catch(() => { })
+  }
+
   // Recovers the original uploaded sign photo as a re-uploadable Blob, from
   // either the in-session object URL or (after a reload) the authenticated
   // remote path — needed to regenerate an "Identify the Sign" response.
@@ -673,6 +694,7 @@ export function Chat() {
                 generation_time_seconds: event.generation_time_seconds,
                 rag_sources: event.rag_sources ?? [],
               })
+              fetchFollowUpQuestions(userMsg.message, messageId)
               streamingText = ""
 
             } else if (event.type === "error") {
@@ -1172,6 +1194,7 @@ export function Chat() {
             pushToSidebar(doneMsg);
             setIsLoading(false);
             streamingIdxRef.current = -1;
+            fetchFollowUpQuestions(messageText, doneMsg.message_id);
             if (isNewChat && country) {
               apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { })
             }
