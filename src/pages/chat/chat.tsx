@@ -352,12 +352,44 @@ export function Chat() {
         total_glu: ver.total_glu,
         total_logtoku: ver.total_logtoku,
         rag_sources: (ver as any).rag_sources ?? [],
+        images: ver.images ?? [],
       }
       return updated
     })
   }
 
+  // ── Shared image resolution helpers (used by both send and regenerate) ───
+  async function resolveImages(imgs: SignImage[] | undefined): Promise<SignImage[]> {
+    if (!imgs?.length) return [];
+    return Promise.all(imgs.map(async (img) => ({
+      ...img,
+      resolvedUrl: await toAuthenticatedBlobUrl(img.url, token!),
+    })));
+  }
+
+  // Recovers the original uploaded sign photo as a re-uploadable Blob, from
+  // either the in-session object URL or (after a reload) the authenticated
+  // remote path — needed to regenerate an "Identify the Sign" response.
+  async function getOriginalSignImageBlob(userMsg: ChatMessageModel, authToken: string): Promise<Blob | null> {
+    const file = userMsg.chat_uploaded_files?.[0];
+    if (!file) return null;
+    try {
+      const objectUrl = file.objectUrl ?? (file.remoteUrl ? await toAuthenticatedBlobUrl(file.remoteUrl, authToken) : undefined);
+      if (!objectUrl) return null;
+      const res = await fetch(objectUrl);
+      if (!res.ok) return null;
+      return await res.blob();
+    } catch {
+      return null;
+    }
+  }
+
   // ── Regenerate ────────────────────────────────────────────────────────────
+  // A chat's mode is fixed for its whole lifetime (switching modes starts a
+  // new chat — see ModeSwitch's onMode handler), so the current `mode` state
+  // always matches the mode every message in `messages` was generated under.
+  // Regenerate must therefore replay that same mode's flow/endpoint, not
+  // always the "Ask Salama" one.
   async function handleRegenerate(msgIdx: number) {
     if (isLoading || regeneratingIdx !== -1 || !token) return
 
@@ -372,11 +404,6 @@ export function Chat() {
     const chatId = selectedChatId ?? assistantMsg.chat_id
     const messageId = assistantMsg.message_id
 
-    if (!messageId) {
-      console.warn("No message_id on assistant message — cannot regenerate via versioned endpoint")
-      return
-    }
-
     const userMsgIdx = messages.slice(0, msgIdx).map((m) => m.role).lastIndexOf(ChatMessageRoleType.USER)
     const contextForApi = messages
       .slice(0, userMsgIdx)
@@ -385,144 +412,83 @@ export function Chat() {
         content: m.message,
       }))
 
-    setRegeneratingIdx(msgIdx)
+    // Shared version bookkeeping — every mode below appends its result as a
+    // new version of this same message row, so the version switcher/UI
+    // behaves identically regardless of which flow produced it.
+    const applyStreamingText = (text: string) => {
+      setMessages((prev) => {
+        const updated = [...prev]
+        const msg = updated[msgIdx]
+        const existingVersions = msg.versions ?? []
+        const isPlaceholder =
+          existingVersions.length > 0 &&
+          (existingVersions[existingVersions.length - 1] as any)._streaming
 
-    let streamingText = ""
-
-    try {
-      const res = await fetch(
-        `${API_BASE}/chats/${chatId}/messages/${messageId}/regenerate/stream`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            question: userMsg.message,
-            country: country ?? "qatar",
-            use_rag: true,
-            context: contextForApi,
-          }),
-        }
-      )
-
-      if (!res.ok || !res.body) throw new Error(`Regenerate stream failed: ${res.status}`)
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ""
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) {
-          setRegeneratingIdx(-1)
-          break
+        const streamingVersion: ResponseVersion & { _streaming?: boolean } = {
+          version_num: (existingVersions[existingVersions.length - 1]?.version_num ?? 0) + (isPlaceholder ? 0 : 1),
+          message: text,
+          token_data: [],
+          _streaming: true,
         }
 
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split("\n")
-        buffer = lines.pop() ?? ""
+        const newVersions = isPlaceholder
+          ? [...existingVersions.slice(0, -1), streamingVersion]
+          : [...existingVersions, streamingVersion]
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue
-          let event: any
-          try { event = JSON.parse(line.slice(6).trim()) } catch { continue }
-
-          if (event.type === "token") {
-            streamingText += event.content
-            setMessages((prev) => {
-              const updated = [...prev]
-              const msg = updated[msgIdx]
-              const existingVersions = msg.versions ?? []
-              const isPlaceholder =
-                existingVersions.length > 0 &&
-                (existingVersions[existingVersions.length - 1] as any)._streaming
-
-              const streamingVersion: ResponseVersion & { _streaming?: boolean } = {
-                version_num: (existingVersions[existingVersions.length - 1]?.version_num ?? 0) + (isPlaceholder ? 0 : 1),
-                message: streamingText,
-                token_data: [],
-                _streaming: true,
-              }
-
-              const newVersions = isPlaceholder
-                ? [...existingVersions.slice(0, -1), streamingVersion]
-                : [...existingVersions, streamingVersion]
-
-              updated[msgIdx] = {
-                ...msg,
-                versions: newVersions,
-                activeVersionIdx: newVersions.length - 1,
-                message: streamingText,
-              }
-              return updated
-            })
-
-          } else if (event.type === "done") {
-            const newVersion: ResponseVersion = {
-              version_num: event.version_num,
-              message: event.message,
-              token_data: event.token_data ?? [],
-              total_reliability: event.total_reliability,
-              total_entropy: event.total_entropy,
-              total_collision_entropy: event.total_collision_entropy,
-              total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers,
-              total_glu: event.total_glu ?? 0,
-              total_logtoku: event.total_logtoku ?? 0,
-              generation_time_seconds: event.generation_time_seconds,
-              rag_sources: event.rag_sources ?? [],
-            }
-
-            setMessages((prev) => {
-              const updated = [...prev]
-              const msg = updated[msgIdx]
-              const cleanVersions = (msg.versions ?? []).filter((v) => !(v as any)._streaming)
-              const finalVersions = [...cleanVersions, newVersion]
-
-              updated[msgIdx] = {
-                ...msg,
-                versions: finalVersions,
-                activeVersionIdx: finalVersions.length - 1,
-                message: newVersion.message,
-                token_data: newVersion.token_data,
-                generation_time_seconds: newVersion.generation_time_seconds,
-                total_reliability: newVersion.total_reliability,
-                total_entropy: newVersion.total_entropy,
-                total_collision_entropy: newVersion.total_collision_entropy,
-                total_reliability_with_hidden_layers: newVersion.total_reliability_with_hidden_layers,
-                total_glu: newVersion.total_glu ?? 0,
-                total_logtoku: newVersion.total_logtoku ?? 0,
-                rag_sources: (newVersion as any).rag_sources ?? [],
-              }
-              return updated
-            })
-
-            setRegeneratingIdx(-1)
-            streamingText = ""
-
-          } else if (event.type === "error") {
-            setMessages((prev) => {
-              const updated = [...prev]
-              const msg = updated[msgIdx]
-              const cleanVersions = (msg.versions ?? []).filter((v) => !(v as any)._streaming)
-              const prevIdx = cleanVersions.length - 1
-              const prevVer = cleanVersions[prevIdx]
-              updated[msgIdx] = {
-                ...msg,
-                versions: cleanVersions,
-                activeVersionIdx: prevIdx,
-                message: prevVer?.message ?? msg.message,
-              }
-              return updated
-            })
-            setRegeneratingIdx(-1)
-            streamingText = ""
-          }
+        updated[msgIdx] = {
+          ...msg,
+          versions: newVersions,
+          activeVersionIdx: newVersions.length - 1,
+          message: text,
         }
-      }
-    } catch (err) {
-      console.error("Regenerate error:", err)
+        return updated
+      })
+    }
+
+    const applyImages = (imgs: SignImage[]) => {
+      setMessages((prev) => {
+        const updated = [...prev]
+        updated[msgIdx] = { ...updated[msgIdx], images: imgs }
+        return updated
+      })
+    }
+
+    const finalizeVersion = (
+      version: Omit<ResponseVersion, "version_num"> & { version_num?: number },
+      extra: Partial<ChatMessageModel> = {}
+    ) => {
+      setMessages((prev) => {
+        const updated = [...prev]
+        const msg = updated[msgIdx]
+        const cleanVersions = (msg.versions ?? []).filter((v) => !(v as any)._streaming)
+        const newVersion: ResponseVersion = {
+          ...version,
+          version_num: version.version_num ?? (cleanVersions[cleanVersions.length - 1]?.version_num ?? 0) + 1,
+        }
+        const finalVersions = [...cleanVersions, newVersion]
+
+        updated[msgIdx] = {
+          ...msg,
+          ...extra,
+          versions: finalVersions,
+          activeVersionIdx: finalVersions.length - 1,
+          message: newVersion.message,
+          token_data: newVersion.token_data,
+          generation_time_seconds: newVersion.generation_time_seconds,
+          total_reliability: newVersion.total_reliability,
+          total_entropy: newVersion.total_entropy,
+          total_collision_entropy: newVersion.total_collision_entropy,
+          total_reliability_with_hidden_layers: newVersion.total_reliability_with_hidden_layers,
+          total_glu: newVersion.total_glu ?? 0,
+          total_logtoku: newVersion.total_logtoku ?? 0,
+          rag_sources: (newVersion as any).rag_sources ?? [],
+        }
+        return updated
+      })
+      setRegeneratingIdx(-1)
+    }
+
+    const revertOnFailure = () => {
       setMessages((prev) => {
         const updated = [...prev]
         const msg = updated[msgIdx]
@@ -538,6 +504,180 @@ export function Chat() {
         return updated
       })
       setRegeneratingIdx(-1)
+    }
+
+    setRegeneratingIdx(msgIdx)
+
+    try {
+      if (mode === "read") {
+  if (!messageId) {
+    console.warn("No message_id on assistant message — cannot regenerate via versioned endpoint")
+    setRegeneratingIdx(-1)
+    return
+  }
+  const imageBlob = await getOriginalSignImageBlob(userMsg, token)
+  if (!imageBlob) {
+    toast.error("Original sign photo is unavailable — can't regenerate.")
+    setRegeneratingIdx(-1)
+    return
+  }
+
+  const form = new FormData()
+  form.append("image", imageBlob, "sign.jpg")
+  form.append("country", country ?? "qatar")
+  if (userMsg.message?.trim()) form.append("question", userMsg.message)
+
+  let streamText = ""
+  for await (const event of streamSSEForm(
+    `/chats/${chatId}/messages/${messageId}/regenerate-identify-sign/stream`,
+    form,
+    token
+  )) {
+    if (event.type === "token") {
+      streamText += (event.content as string) ?? ""
+      applyStreamingText(streamText)
+
+    } else if (event.type === "done") {
+      const resolvedImages = await resolveImages((event.sign_images as SignImage[]) ?? [])
+      finalizeVersion({
+        version_num: event.version_num as number | undefined,
+        message: (event.message as string) ?? streamText,
+        token_data: (event.token_data as TokenData[]) ?? [],
+        total_reliability: event.total_reliability as number | undefined,
+        total_entropy: event.total_entropy as number | undefined,
+        total_collision_entropy: event.total_collision_entropy as number | undefined,
+        total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers as number | undefined,
+        total_glu: (event.total_glu as number) ?? 0,
+        total_logtoku: (event.total_logtoku as number) ?? 0,
+        generation_time_seconds: event.generation_time_seconds as number | undefined,
+        images: resolvedImages,
+      }, { images: resolvedImages })
+
+    } else if (event.type === "error") {
+      throw new Error((event.content as string) ?? "Sign identification failed")
+    }
+  }
+
+} else if (mode === "name") {
+  if (!messageId) {
+    console.warn("No message_id on assistant message — cannot regenerate via versioned endpoint")
+    setRegeneratingIdx(-1)
+    return
+  }
+  let streamText = ""
+  let resolvedImages: SignImage[] = []
+
+  for await (const event of streamSSE(
+    `/chats/${chatId}/messages/${messageId}/regenerate-find-sign/stream`,
+    { question: userMsg.message, country: country ?? "qatar" },
+    token
+  )) {
+    if (event.type === "matches") {
+      resolvedImages = await resolveImages((event.sign_images as SignImage[]) ?? [])
+      applyImages(resolvedImages)
+
+    } else if (event.type === "token") {
+      streamText += (event.content as string) ?? ""
+      applyStreamingText(streamText)
+
+    } else if (event.type === "done") {
+      finalizeVersion({
+        version_num: event.version_num as number | undefined,
+        message: (event.message as string) ?? streamText,
+        token_data: (event.token_data as TokenData[]) ?? [],
+        total_reliability: event.total_reliability as number | undefined,
+        total_entropy: event.total_entropy as number | undefined,
+        total_collision_entropy: event.total_collision_entropy as number | undefined,
+        total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers as number | undefined,
+        total_glu: (event.total_glu as number) ?? 0,
+        total_logtoku: (event.total_logtoku as number) ?? 0,
+        generation_time_seconds: event.generation_time_seconds as number | undefined,
+        images: resolvedImages,
+      }, { images: resolvedImages })
+
+    } else if (event.type === "error") {
+      throw new Error((event.content as string) ?? "Sign search failed")
+    }
+  }
+
+      } else {
+        // ── Ask Salama → existing versioned regenerate endpoint (unchanged) ──
+        if (!messageId) {
+          console.warn("No message_id on assistant message — cannot regenerate via versioned endpoint")
+          setRegeneratingIdx(-1)
+          return
+        }
+
+        const res = await fetch(
+          `${API_BASE}/chats/${chatId}/messages/${messageId}/regenerate/stream`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              question: userMsg.message,
+              country: country ?? "qatar",
+              use_rag: true,
+              context: contextForApi,
+            }),
+          }
+        )
+
+        if (!res.ok || !res.body) throw new Error(`Regenerate stream failed: ${res.status}`)
+
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ""
+        let streamingText = ""
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) {
+            setRegeneratingIdx(-1)
+            break
+          }
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split("\n")
+          buffer = lines.pop() ?? ""
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue
+            let event: any
+            try { event = JSON.parse(line.slice(6).trim()) } catch { continue }
+
+            if (event.type === "token") {
+              streamingText += event.content
+              applyStreamingText(streamingText)
+
+            } else if (event.type === "done") {
+              finalizeVersion({
+                version_num: event.version_num,
+                message: event.message,
+                token_data: event.token_data ?? [],
+                total_reliability: event.total_reliability,
+                total_entropy: event.total_entropy,
+                total_collision_entropy: event.total_collision_entropy,
+                total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers,
+                total_glu: event.total_glu ?? 0,
+                total_logtoku: event.total_logtoku ?? 0,
+                generation_time_seconds: event.generation_time_seconds,
+                rag_sources: event.rag_sources ?? [],
+              })
+              streamingText = ""
+
+            } else if (event.type === "error") {
+              revertOnFailure()
+              streamingText = ""
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Regenerate error:", err)
+      revertOnFailure()
     }
   }
 
@@ -600,14 +740,6 @@ export function Chat() {
       role: msg.role === ChatMessageRoleType.USER ? "user" : "assistant",
       content: msg.message,
     }));
-
-    async function resolveImages(imgs: SignImage[] | undefined): Promise<SignImage[]> {
-      if (!imgs?.length) return [];
-      return Promise.all(imgs.map(async (img) => ({
-        ...img,
-        resolvedUrl: await toAuthenticatedBlobUrl(img.url, token!),
-      })));
-    }
 
     function pushToSidebar(msg: ChatMessageModel & { generation_time_seconds?: number }) {
       setChatSessions((prev) => {
@@ -680,6 +812,7 @@ export function Chat() {
               total_glu: (event.total_glu as number) ?? 0,
               total_logtoku: (event.total_logtoku as number) ?? 0,
               generation_time_seconds: (event.generation_time_seconds as number) ?? finalElapsed,
+              images: resolvedImages,
             };
 
             const doneMsg: ChatMessageModel & { generation_time_seconds?: number } = {
@@ -798,6 +931,7 @@ export function Chat() {
               total_glu: (event.total_glu as number) ?? 0,
               total_logtoku: (event.total_logtoku as number) ?? 0,
               generation_time_seconds: (event.generation_time_seconds as number) ?? finalElapsed,
+              images: resolvedImages,
             };
 
             const doneMsg: ChatMessageModel & { generation_time_seconds?: number } = {
