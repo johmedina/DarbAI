@@ -16,6 +16,7 @@ import { ModalUQ } from "@/pages/chat/ModalUQ"
 import { ModalSources } from '@/pages/chat/ModalSources'
 import { languageLabel } from "@/lib/translation"
 import { useAuth } from "@/context/AuthContext"
+import { useLanguage } from '@/context/LanguageContext'
 
 interface PreviewMessageProps {
   message: ChatMessageModel
@@ -30,7 +31,7 @@ interface PreviewMessageProps {
   ) => void;
 
   onFollowUp?: (question: string) => void;
-  
+
   isRegenerating?: boolean
   onVersionChange?: (idx: number) => void
   isLatestMessage?: boolean
@@ -46,6 +47,7 @@ export const PreviewMessage = ({
   isLatestMessage = false,
 }: PreviewMessageProps) => {
   const { token } = useAuth()
+  const { t } = useLanguage()
   const [showUQModal, setShowUQModal] = useState(false)
   const [showSourcesModal, setShowSourcesModal] = useState(false)
   const isStreaming = (message as any).is_streaming
@@ -69,27 +71,27 @@ export const PreviewMessage = ({
   }, [displayText])
 
   // UQ data comes from the active version when available
-  const displayTokenData    = activeVer?.token_data                        ?? message.token_data
-  const displayGenTime      = activeVer?.generation_time_seconds           ?? message.generation_time_seconds
-  const displayTotalRel     = activeVer?.total_reliability                 ?? message.total_reliability
-  const displayTotalEnt     = activeVer?.total_entropy                     ?? message.total_entropy
-  const displayTotalCE      = activeVer?.total_collision_entropy           ?? message.total_collision_entropy
-  const displayTotalRWHL    = activeVer?.total_reliability_with_hidden_layers ?? message.total_reliability_with_hidden_layers
-  const displayTotalGlu     = activeVer?.total_glu                         ?? message.total_glu
-  const displayTotalLogtoku = activeVer?.total_logtoku                     ?? message.total_logtoku
+  const displayTokenData = activeVer?.token_data ?? message.token_data
+  const displayGenTime = activeVer?.generation_time_seconds ?? message.generation_time_seconds
+  const displayTotalRel = activeVer?.total_reliability ?? message.total_reliability
+  const displayTotalEnt = activeVer?.total_entropy ?? message.total_entropy
+  const displayTotalCE = activeVer?.total_collision_entropy ?? message.total_collision_entropy
+  const displayTotalRWHL = activeVer?.total_reliability_with_hidden_layers ?? message.total_reliability_with_hidden_layers
+  const displayTotalGlu = activeVer?.total_glu ?? message.total_glu
+  const displayTotalLogtoku = activeVer?.total_logtoku ?? message.total_logtoku
 
   // Synthesise a display-message object for the UQ modal
   const uqMessage = {
     ...message,
-    message:                              displayText,
-    token_data:                           displayTokenData,
-    generation_time_seconds:              displayGenTime,
-    total_reliability:                    displayTotalRel,
-    total_entropy:                        displayTotalEnt,
-    total_collision_entropy:              displayTotalCE,
+    message: displayText,
+    token_data: displayTokenData,
+    generation_time_seconds: displayGenTime,
+    total_reliability: displayTotalRel,
+    total_entropy: displayTotalEnt,
+    total_collision_entropy: displayTotalCE,
     total_reliability_with_hidden_layers: displayTotalRWHL,
-    total_glu:                            displayTotalGlu,
-    total_logtoku:                        displayTotalLogtoku,
+    total_glu: displayTotalGlu,
+    total_logtoku: displayTotalLogtoku,
     rag_sources: (activeVer as any)?.rag_sources ?? (message as any).rag_sources ?? [],
   }
 
@@ -122,7 +124,7 @@ export const PreviewMessage = ({
                   remoteSrc={f.remoteUrl}
                   token={token}
                   eager={f.eager ?? true}
-                  alt="Uploaded"
+                  alt={t('ui.uploaded')}
                   imgStyle={{
                     display: "block", maxWidth: "min(300px, 72vw)", maxHeight: 240,
                     width: "auto", borderRadius: 12, objectFit: "cover",
@@ -179,9 +181,10 @@ export const PreviewMessage = ({
                       placeholderStyle={{ border: "1px solid var(--line)" }}
                     />
                     <span style={{ fontSize: 11.5, color: "var(--ink-3)", textAlign: "center", maxWidth: "7rem" }}>{img.name}</span>
-                    <span style={{ fontSize: 10, color: "var(--ink-3)", opacity: 0.6 }}>p.{img.page}</span>
+                    <span style={{ fontSize: 10, color: "var(--ink-3)", opacity: 0.6 }}>{t('ui.pageShortPrefix')}{img.page}</span>
                   </div>
                 ))}
+
               </div>
             )}
 
@@ -194,7 +197,7 @@ export const PreviewMessage = ({
                   remoteSrc={f.remoteUrl}
                   token={token}
                   eager={f.eager ?? true}
-                  alt="Uploaded"
+                  alt={t('ui.uploaded')}
                   imgClassName="max-h-64 w-auto rounded-lg object-contain mb-3"
                   placeholderWidth={220}
                   placeholderHeight={165}
@@ -213,13 +216,15 @@ export const PreviewMessage = ({
                   <Markdown>{translation.text}</Markdown>
                 </div>
                 <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--ink-3)" }}>
-                  <span>Translated from {languageLabel(translation.sourceLanguageCode)}</span>
+                  <span>{t('message.translatedFrom')} {languageLabel(translation.sourceLanguageCode)}</span>
                   <button
                     onClick={() => setTranslation(null)}
-                    style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer",
-                      fontSize: 12.5, color: "var(--accent)", textDecoration: "underline" }}
+                    style={{
+                      background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer",
+                      fontSize: 12.5, color: "var(--accent)", textDecoration: "underline"
+                    }}
                   >
-                    Show original
+                    {useLanguage().t('message.showOriginal')}
                   </button>
                 </div>
               </div>
@@ -252,7 +257,7 @@ export const PreviewMessage = ({
                   setTranslation({ text, languageCode, sourceLanguageCode })
                 }
                 followUpQuestions={message.follow_up_questions ?? []}   // NEW — always passed
-                onFollowUp={onFollowUp}      
+                onFollowUp={onFollowUp}
               />
             )}
 
@@ -263,7 +268,7 @@ export const PreviewMessage = ({
                   fontSize: 11, fontWeight: 700, letterSpacing: ".06em",
                   textTransform: "uppercase", color: "var(--ink-3)",
                 }}>
-                  Suggested follow-ups
+                  {useLanguage().t('message.suggestedFollowups')}
                 </span>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
                   {message.follow_up_questions.map((q, i) => (
@@ -342,7 +347,7 @@ export const ThinkingMessage = ({ elapsedSeconds = 0 }: { elapsedSeconds?: numbe
           fontSize: 14.5, color: "var(--ink-2)", marginBottom: 10,
           display: "flex", alignItems: "center", gap: 8,
         }}>
-          <span>Checking the official traffic sources…</span>
+          <span>{useLanguage().t('message.checkingSources')}</span>
           {elapsedSeconds > 0 && (
             <span style={{ fontSize: 12, color: "var(--ink-3)", fontVariantNumeric: "tabular-nums" }}>
               ({elapsedSeconds.toFixed(1)}s)

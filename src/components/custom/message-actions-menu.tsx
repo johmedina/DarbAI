@@ -3,6 +3,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Languages, Loader2, Search, Hel
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useAuth } from "@/context/AuthContext"
 import { buildTargetLanguages, detectLanguage, languageLabel, translateText } from "@/lib/translation"
+import { useLanguage } from "@/context/LanguageContext"
 
 interface MessageActionsMenuProps {
   sourceText: string
@@ -43,6 +44,7 @@ export function MessageActionsMenu({
   onFollowUp,
 }: MessageActionsMenuProps) {
   const { token } = useAuth()
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<View>("root")
   const [detect, setDetect] = useState<DetectState>({ status: "idle" })
@@ -71,7 +73,7 @@ export function MessageActionsMenu({
         const { code } = await detectLanguage(sourceText, token)
         setDetect({ status: "ready", sourceCode: code, targets: buildTargetLanguages(code) })
       } catch {
-        setDetect({ status: "error", message: "Couldn't detect the response language." })
+        setDetect({ status: "error", message: t('message.detectError') })
       }
     }
   }
@@ -83,7 +85,7 @@ export function MessageActionsMenu({
       onTranslated(translated, targetCode, sourceCode)
       resetAndClose()
     } catch {
-      setDetect({ status: "error", message: "Translation failed. Please try again." })
+      setDetect({ status: "error", message: t('message.translationFailed') })
     } finally {
       setTranslatingTo(null)
     }
@@ -104,7 +106,7 @@ export function MessageActionsMenu({
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <button style={iconBtnStyle} aria-label="More actions" disabled={disabled}
+        <button style={iconBtnStyle} aria-label={t('ui.moreActions')} disabled={disabled}
           onMouseEnter={onHover} onMouseLeave={onUnhover}>
           <ChevronDown size={15} />
         </button>
@@ -114,17 +116,17 @@ export function MessageActionsMenu({
           <div>
             <button style={rowStyle} onClick={openTranslateSubmenu}>
               <Languages size={14} />
-              Translate
+              {t('message.translate')}
               <ChevronRight size={14} style={{ marginLeft: "auto", color: "var(--ink-3)" }} />
             </button>
 
             {followUpQuestions.length > 0 && (
               <button style={rowStyle} onClick={() => setView("followup")}>
                 <HelpCircle size={14} />
-                Follow-up Questions
+                {t('message.followUpQuestions')}
                 <ChevronRight size={14} style={{ marginLeft: "auto", color: "var(--ink-3)" }} />
               </button>
-          )}
+            )}
 
             {/* Future actions (e.g. "Read aloud", "Export") go here as more rows. */}
           </div>
@@ -134,18 +136,20 @@ export function MessageActionsMenu({
           <div>
             <button
               onClick={() => setView("root")}
-              style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", textAlign: "left",
+              style={{
+                display: "flex", alignItems: "center", gap: 6, width: "100%", textAlign: "left",
                 padding: "6px 8px", borderRadius: 6, background: "none", border: "none",
-                cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "var(--ink-3)", marginBottom: 2 }}
+                cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "var(--ink-3)", marginBottom: 2
+              }}
             >
               <ChevronLeft size={13} />
-              Translate
+              {t('message.translate')}
             </button>
 
             {detect.status === "detecting" && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", fontSize: 13, color: "var(--ink-3)" }}>
                 <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
-                Detecting language…
+                {t('message.detecting')}
               </div>
             )}
 
@@ -161,7 +165,7 @@ export function MessageActionsMenu({
                     autoFocus
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search languages…"
+                    placeholder={t('message.searchLanguagesPlaceholder')}
                     style={{
                       width: "100%", padding: "6px 8px 6px 26px", borderRadius: 6,
                       border: "1px solid var(--line)", fontSize: 13, background: "var(--surface)",
@@ -187,7 +191,7 @@ export function MessageActionsMenu({
                   ))}
                   {visibleTargets.length === 0 && (
                     <div style={{ padding: "8px 10px", fontSize: 12.5, color: "var(--ink-3)" }}>
-                      No matching languages.
+                      {t('message.noMatchingLanguages')}
                     </div>
                   )}
                 </div>
@@ -197,26 +201,28 @@ export function MessageActionsMenu({
         )}
 
         {view === "followup" && (
-  <div>
-    <button
-      onClick={() => setView("root")}
-      style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", textAlign: "left",
-        padding: "6px 8px", borderRadius: 6, background: "none", border: "none",
-        cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "var(--ink-3)", marginBottom: 2 }}
-    >
-      <ChevronLeft size={13} />
-      Follow-up Questions
-    </button>
+          <div>
+            <button
+              onClick={() => setView("root")}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, width: "100%", textAlign: "left",
+                padding: "6px 8px", borderRadius: 6, background: "none", border: "none",
+                cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "var(--ink-3)", marginBottom: 2
+              }}
+            >
+              <ChevronLeft size={13} />
+              {t('message.followUpQuestions')}
+            </button>
 
-    <div style={{ maxHeight: 220, overflowY: "auto" }}>
-      {followUpQuestions.map((q, i) => (
-        <button key={i} style={rowStyle} onClick={() => handleSelectFollowUp(q)}>
-          {q}
-        </button>
-      ))}
-    </div>
-  </div>
-)}
+            <div style={{ maxHeight: 220, overflowY: "auto" }}>
+              {followUpQuestions.map((q, i) => (
+                <button key={i} style={rowStyle} onClick={() => handleSelectFollowUp(q)}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   )

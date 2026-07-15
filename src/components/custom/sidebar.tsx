@@ -5,7 +5,8 @@ import { PlusIcon, MessageSquareIcon, ChevronLeftIcon, Trash2Icon, PencilIcon, C
 import { SignImage } from "../../interfaces/interfaces";
 import { useAuth } from "@/context/AuthContext";
 import logo from "@/assets/images/logo.png";
-import { ChatMode, MODES, MODE_ORDER } from "./mode-switch";
+import { ChatMode, MODE_ORDER } from "./mode-switch";
+import { useLanguage } from '@/context/LanguageContext'
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { ResponseVersion } from "../../interfaces/interfaces"
@@ -27,7 +28,7 @@ export interface HistoryMessage {
   token_data?: any[];
   message_id?: string;
   versions?: ResponseVersion[];
-  
+
 }
 
 export interface ChatSession {
@@ -55,14 +56,14 @@ interface SidebarProps {
 function groupByTime(chats: ChatSession[]) {
   const now = Date.now();
   const buckets: Record<string, ChatSession[]> = {
-    Today: [], Yesterday: [], "Previous 7 days": [], Older: [],
+    today: [], yesterday: [], prev7: [], older: [],
   };
   for (const c of chats) {
     const d = Math.floor((now - new Date(c.last_updated).getTime()) / 86400000);
-    if (d < 1) buckets["Today"].push(c);
-    else if (d < 2) buckets["Yesterday"].push(c);
-    else if (d < 7) buckets["Previous 7 days"].push(c);
-    else buckets["Older"].push(c);
+    if (d < 1) buckets["today"].push(c);
+    else if (d < 2) buckets["yesterday"].push(c);
+    else if (d < 7) buckets["prev7"].push(c);
+    else buckets["older"].push(c);
   }
   return Object.entries(buckets).filter(([, v]) => v.length > 0);
 }
@@ -83,9 +84,9 @@ function ConfirmDialog({ onConfirm, onCancel }: { onConfirm: () => void; onCance
         border: "1px solid var(--line)", background: "var(--surface)",
         padding: "22px 24px", boxShadow: "var(--shadow-lg)",
       }}>
-        <p style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>Delete this chat?</p>
+        <p style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>{useLanguage().t('sidebar.deleteTitle')}</p>
         <p style={{ fontSize: 13.5, color: "var(--ink-2)", marginBottom: 20 }}>
-          This permanently deletes all messages and cannot be undone.
+          {useLanguage().t('sidebar.deleteMessage')}
         </p>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button
@@ -95,7 +96,7 @@ function ConfirmDialog({ onConfirm, onCancel }: { onConfirm: () => void; onCance
               background: "transparent", border: "1px solid var(--line-2)", color: "var(--ink-2)", cursor: "pointer",
             }}
           >
-            Cancel
+            {useLanguage().t('sidebar.cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -104,7 +105,7 @@ function ConfirmDialog({ onConfirm, onCancel }: { onConfirm: () => void; onCance
               background: "var(--caution)", border: "none", color: "#fff", cursor: "pointer",
             }}
           >
-            Delete
+            {useLanguage().t('sidebar.delete')}
           </button>
         </div>
       </div>
@@ -177,7 +178,7 @@ function DropdownMenu({ anchorRect, onRename, onDelete, onClose }: {
         onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; }}
         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
       >
-        <PencilIcon size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }} /> Rename
+        <PencilIcon size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }} /> {useLanguage().t('sidebar.rename')}
       </button>
       <button
         onClick={e => { e.stopPropagation(); onClose(); onDelete(); }}
@@ -190,7 +191,7 @@ function DropdownMenu({ anchorRect, onRename, onDelete, onClose }: {
         onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; }}
         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
       >
-        <Trash2Icon size={14} style={{ flexShrink: 0 }} /> Delete
+        <Trash2Icon size={14} style={{ flexShrink: 0 }} /> {useLanguage().t('sidebar.delete')}
       </button>
     </div>,
     document.body
@@ -205,16 +206,16 @@ function ChatRow({ chat, isSelected, onSelect, onRename, onDelete }: {
   onRename: (t: string) => Promise<void>;
   onDelete: () => void;
 }) {
-  const [editing, setEditing]             = useState(false);
-  const [draftTitle, setDraftTitle]       = useState(chat.title);
+  const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(chat.title);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [busy, setBusy]                   = useState(false);
-  const [menuOpen, setMenuOpen]           = useState(false);
-  const [anchorRect, setAnchorRect]       = useState<DOMRect | null>(null);
-  const [hovered, setHovered]             = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const [hovered, setHovered] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const dotRef   = useRef<HTMLButtonElement>(null);
+  const dotRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
   useEffect(() => { setDraftTitle(chat.title); }, [chat.title]);
@@ -280,7 +281,7 @@ function ChatRow({ chat, isSelected, onSelect, onRename, onDelete }: {
           }}
         >
           <p style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {chat.title || "Untitled chat"}
+            {chat.title || useLanguage().t('sidebar.untitled')}
           </p>
         </div>
 
@@ -314,7 +315,7 @@ function ChatRow({ chat, isSelected, onSelect, onRename, onDelete }: {
         {!editing && (
           <button
             ref={dotRef}
-            title="More options"
+            title={useLanguage().t('sidebar.moreOptions')}
             onClick={openMenu}
             style={{
               width: 28, height: 28, borderRadius: 7, flexShrink: 0, marginRight: 4,
@@ -392,150 +393,150 @@ export function Sidebar({
           }}
         >
 
-        {/* Header */}
-        <div style={{ padding: "16px 16px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <img src={logo} alt="Salama" style={{ height: 22, width: "auto" }} />
-          <button
-            onClick={onClose}
-            aria-label="Collapse sidebar"
-            style={{
-              width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center",
-              color: "var(--ink-2)", border: "1px solid transparent", background: "transparent", cursor: "pointer",
-              transition: "background .15s, border-color .15s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; e.currentTarget.style.borderColor = "var(--line)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
-          >
-            <ChevronLeftIcon size={18} />
-          </button>
-        </div>
-
-        {/* New chat button */}
-        <div style={{ padding: "0 12px 12px", flexShrink: 0 }}>
-          <button
-            onClick={onNewChat}
-            style={{
-              width: "100%", height: 42, borderRadius: 11,
-              background: "var(--ink)", color: "var(--bg)",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              fontSize: 14, fontWeight: 600, border: "none", cursor: "pointer",
-              transition: "transform .12s",
-            }}
-            onMouseDown={e => { e.currentTarget.style.transform = "scale(.98)"; }}
-            onMouseUp={e => { e.currentTarget.style.transform = "none"; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = "none"; }}
-          >
-            <PlusIcon size={17} /> New chat
-          </button>
-        </div>
-
-        {/* Modes */}
-        <div style={{ padding: "0 12px 14px", flexShrink: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--ink-3)", padding: "2px 10px 8px" }}>
-            MODES
+          {/* Header */}
+          <div style={{ padding: "16px 16px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+            <img src={logo} alt={useLanguage().t('header.logoAlt')} style={{ height: 22, width: "auto" }} />
+            <button
+              onClick={onClose}
+              aria-label={useLanguage().t('sidebar.collapse')}
+              style={{
+                width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center",
+                color: "var(--ink-2)", border: "1px solid transparent", background: "transparent", cursor: "pointer",
+                transition: "background .15s, border-color .15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; e.currentTarget.style.borderColor = "var(--line)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
+            >
+              <ChevronLeftIcon size={18} />
+            </button>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {MODE_ORDER.map(id => {
-              const { Icon, label, sub } = MODES[id];
-              const active = mode === id;
-              return (
-                <button
-                  key={id}
-                  onClick={() => onMode(id)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 11, padding: "9px 10px",
-                    borderRadius: 10, textAlign: "start", border: "none", cursor: "pointer",
-                    background: active ? "var(--surface-2)" : "transparent",
-                    outline: active ? "1px solid var(--line-2)" : "1px solid transparent",
-                    transition: "background .12s",
-                  }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = "var(--surface-2)"; }}
-                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
-                >
-                  <span style={{
-                    width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: active ? "var(--ink)" : "var(--surface)",
-                    color: active ? "var(--road)" : "var(--ink-2)",
-                    border: active ? "none" : "1px solid var(--line)",
-                  }}>
-                    <Icon size={16} />
-                  </span>
-                  <span style={{ minWidth: 0, flex: 1 }}>
-                    <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>{label}</span>
-                    <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-3)" }}>{sub}</span>
-                  </span>
-                  {active && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--road)", flexShrink: 0 }} />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
 
-        {/* History list */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 8px", minHeight: 0 }}>
-          {isLoading ? (
-            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-              {[...Array(5)].map((_, i) => (
-                <div key={i} style={{ height: 36, borderRadius: 9, background: "var(--surface-2)", opacity: 1 - i * 0.15, animation: "pulse 1.5s ease-in-out infinite" }} />
-              ))}
+          {/* New chat button */}
+          <div style={{ padding: "0 12px 12px", flexShrink: 0 }}>
+            <button
+              onClick={onNewChat}
+              style={{
+                width: "100%", height: 42, borderRadius: 11,
+                background: "var(--ink)", color: "var(--bg)",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                fontSize: 14, fontWeight: 600, border: "none", cursor: "pointer",
+                transition: "transform .12s",
+              }}
+              onMouseDown={e => { e.currentTarget.style.transform = "scale(.98)"; }}
+              onMouseUp={e => { e.currentTarget.style.transform = "none"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "none"; }}
+            >
+              <PlusIcon size={17} /> {useLanguage().t('sidebar.newChat')}
+            </button>
+          </div>
+
+          {/* Modes */}
+          <div style={{ padding: "0 12px 14px", flexShrink: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--ink-3)", padding: "2px 10px 8px" }}>
+              {useLanguage().t('sidebar.modesTitle')}
             </div>
-          ) : chats.length === 0 ? (
-            <div style={{ marginTop: 48, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center", padding: "0 16px" }}>
-              <div style={{ width: 40, height: 40, borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-3)" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.2 7.7L3 21l1.8-5.3A8.5 8.5 0 1 1 21 11.5z"/></svg>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {MODE_ORDER.map(id => {
+                const { Icon, label, sub } = MODES[id];
+                const active = mode === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => onMode(id)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 11, padding: "9px 10px",
+                      borderRadius: 10, textAlign: "start", border: "none", cursor: "pointer",
+                      background: active ? "var(--surface-2)" : "transparent",
+                      outline: active ? "1px solid var(--line-2)" : "1px solid transparent",
+                      transition: "background .12s",
+                    }}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = "var(--surface-2)"; }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <span style={{
+                      width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: active ? "var(--ink)" : "var(--surface)",
+                      color: active ? "var(--road)" : "var(--ink-2)",
+                      border: active ? "none" : "1px solid var(--line)",
+                    }}>
+                      <Icon size={16} />
+                    </span>
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>{label}</span>
+                      <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-3)" }}>{sub}</span>
+                    </span>
+                    {active && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--road)", flexShrink: 0 }} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* History list */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "0 8px", minHeight: 0 }}>
+            {isLoading ? (
+              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} style={{ height: 36, borderRadius: 9, background: "var(--surface-2)", opacity: 1 - i * 0.15, animation: "pulse 1.5s ease-in-out infinite" }} />
+                ))}
               </div>
-              <p style={{ fontSize: 13, color: "var(--ink-3)" }}>No conversations yet. Start chatting!</p>
-            </div>
-          ) : (
-            <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 16, paddingBottom: 16 }}>
-              {groups.map(([label, groupChats]) => (
-                <div key={label}>
-                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--ink-3)", padding: "6px 10px" }}>
-                    {label}
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    {groupChats.map(chat => (
-                      <ChatRow
-                        key={chat.chat_id}
-                        chat={chat}
-                        isSelected={selectedChatId === chat.chat_id}
-                        onSelect={() => onSelectChat(chat)}
-                        onRename={title => onRenameChat(chat.chat_id, title)}
-                        onDelete={() => onDeleteChat(chat.chat_id)}
-                      />
-                    ))}
-                  </div>
+            ) : chats.length === 0 ? (
+              <div style={{ marginTop: 48, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center", padding: "0 16px" }}>
+                <div style={{ width: 40, height: 40, borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-3)" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.2 7.7L3 21l1.8-5.3A8.5 8.5 0 1 1 21 11.5z" /></svg>
                 </div>
-              ))}
+                <p style={{ fontSize: 13, color: "var(--ink-3)" }}>{useLanguage().t('sidebar.noConversations')} {useLanguage().t('sidebar.startChatting')}</p>
+              </div>
+            ) : (
+              <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 16, paddingBottom: 16 }}>
+                {groups.map(([label, groupChats]) => (
+                  <div key={label}>
+                    <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--ink-3)", padding: "6px 10px" }}>
+                      {useLanguage().t(`sidebar.${label}`)}
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                      {groupChats.map(chat => (
+                        <ChatRow
+                          key={chat.chat_id}
+                          chat={chat}
+                          isSelected={selectedChatId === chat.chat_id}
+                          onSelect={() => onSelectChat(chat)}
+                          onRename={title => onRenameChat(chat.chat_id, title)}
+                          onDelete={() => onDeleteChat(chat.chat_id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* User footer */}
+          {user && (
+            <div style={{
+              borderTop: "1px solid var(--line)", padding: "12px",
+              display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
+            }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                background: "var(--road)", color: "#1A1813",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontWeight: 700, fontSize: 14,
+              }}>
+                {initial}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {user.username}
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {emailDomain}
+                </div>
+              </div>
             </div>
           )}
-        </div>
-
-        {/* User footer */}
-        {user && (
-          <div style={{
-            borderTop: "1px solid var(--line)", padding: "12px",
-            display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
-          }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-              background: "var(--road)", color: "#1A1813",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 700, fontSize: 14,
-            }}>
-              {initial}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {user.username}
-              </div>
-              <div style={{ fontSize: 11.5, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {emailDomain}
-              </div>
-            </div>
-          </div>
-        )}
         </div>
       </aside>
     </>

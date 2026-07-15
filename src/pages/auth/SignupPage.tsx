@@ -5,18 +5,20 @@ import { Loader2, Moon, Sun } from "lucide-react";
 import logo from "@/assets/images/logo.png";
 import { useTheme } from "@/context/ThemeContext";
 import { hashPassword } from "@/lib/apiClient";
+import { useLanguage } from "@/context/LanguageContext";
 
 export function SignupPage() {
   const { signup, isAuthenticated } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
-  const [email, setEmail]             = useState("");
-  const [username, setUsername]       = useState("");
-  const [password, setPassword]       = useState("");
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [confirmPassword, setConfirm] = useState("");
-  const [error, setError]             = useState("");
-  const [isLoading, setIsLoading]     = useState(false);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   if (isAuthenticated) {
     navigate("/", { replace: true });
@@ -28,11 +30,11 @@ export function SignupPage() {
     setError("");
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t('authErrors.passwordMismatch'));
       return;
     }
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t('authErrors.passwordTooShort'));
       return;
     }
 
@@ -42,7 +44,7 @@ export function SignupPage() {
       await signup(email.trim(), username.trim(), hashedPassword);
       navigate("/", { replace: true });
     } catch (err: any) {
-      setError(err.message || "Sign up failed. Please try again.");
+      setError(err.message || t('authErrors.signupFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -52,7 +54,7 @@ export function SignupPage() {
     <div style={{ height: "100vh", display: "flex", background: "var(--bg)", position: "relative", overflow: "hidden" }}>
       {/* Theme toggle */}
       <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }}>
-        <IconBtn onClick={toggleTheme} label="Toggle theme">
+        <IconBtn onClick={toggleTheme} label={t('ui.toggleTheme')}>
           {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
         </IconBtn>
       </div>
@@ -66,16 +68,16 @@ export function SignupPage() {
           padding: "48px 52px", position: "relative", overflow: "hidden",
         }}
       >
-        <img src={logo} alt="Salama" style={{ height: 34, width: "auto", filter: "brightness(0) invert(1)" }} />
+        <img src={logo} alt={t('header.logoAlt')} style={{ height: 34, width: "auto", filter: "brightness(0) invert(1)" }} />
         <div style={{ maxWidth: 460 }}>
           <h1 style={{ fontSize: 40, lineHeight: 1.12, fontWeight: 650, letterSpacing: "-.03em" }}>
-            Drive Qatar's roads with confidence.
+            {t('auth.brandTitle')}
           </h1>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: "rgba(247,244,236,.66)", marginTop: 18, maxWidth: 420 }}>
-            Salama answers your driving, licensing and road-safety questions — and tells you exactly how much to trust every answer.
+            {t('auth.brandDesc')}
           </p>
           <div style={{ marginTop: 30, display: "flex", gap: 26, flexWrap: "wrap" }}>
-            {[["Official", "traffic sources"], ["Trust score", "on every answer"], ["العربية", "& English"]].map(([a, b], i) => (
+            {Array.isArray(t('auth.features')) && (t('auth.features') as string[][]).map(([a, b], i) => (
               <div key={i}>
                 <div style={{ fontSize: 17, fontWeight: 650, color: "#F2B705" }}>{a}</div>
                 <div style={{ fontSize: 12.5, color: "rgba(247,244,236,.55)", marginTop: 2 }}>{b}</div>
@@ -91,10 +93,10 @@ export function SignupPage() {
       <div style={{ flex: "1 1 0", display: "flex", alignItems: "center", justifyContent: "center", padding: 28, overflowY: "auto" }}>
         <div className="fade-up" style={{ width: "100%", maxWidth: 380 }}>
           <h2 style={{ fontSize: 26, fontWeight: 650, letterSpacing: "-.025em", color: "var(--ink)" }}>
-            Create your account
+            {t("auth.createAccountTitle")}
           </h2>
           <p style={{ fontSize: 14.5, color: "var(--ink-2)", marginTop: 6 }}>
-            Join Salama to start learning the road.
+            {t("auth.createAccountSub")}
           </p>
 
           {error && (
@@ -105,18 +107,18 @@ export function SignupPage() {
 
           <form onSubmit={handleSubmit} style={{ marginTop: 26, display: "flex", flexDirection: "column", gap: 16 }}>
             <AuthField
-              label="Email"
+              label={t("auth.email")}
               type="email"
-              placeholder="you@example.com"
+              placeholder={t('auth.emailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
             />
             <AuthField
-              label="Username"
+              label={t("auth.username")}
               type="text"
-              placeholder="john_doe"
+              placeholder={t('auth.usernamePlaceholder')}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -125,18 +127,18 @@ export function SignupPage() {
               autoComplete="username"
             />
             <AuthField
-              label="Password"
+              label={t("auth.password")}
               type="password"
-              placeholder="At least 8 characters"
+              placeholder={t('auth.passwordHint')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="new-password"
             />
             <AuthField
-              label="Confirm password"
+              label={t("auth.confirmPassword")}
               type="password"
-              placeholder="••••••••"
+              placeholder={t('auth.passwordPlaceholder')}
               value={confirmPassword}
               onChange={(e) => setConfirm(e.target.value)}
               required
@@ -155,14 +157,14 @@ export function SignupPage() {
                 opacity: isLoading ? 0.7 : 1, border: "none",
               }}
             >
-              {isLoading ? <><Loader2 size={16} className="spin" /> Creating account…</> : "Create account"}
+              {isLoading ? <><Loader2 size={16} className="spin" /> {t("auth.creatingAccount")}</> : t("auth.createAccount")}
             </button>
           </form>
 
           <p style={{ marginTop: 22, fontSize: 14, color: "var(--ink-2)", textAlign: "center" }}>
-            Already have an account?{" "}
+            {t("auth.noAccount")} {" "}
             <Link to="/login" style={{ fontWeight: 600, color: "var(--ink)", textUnderlineOffset: 3 }}>
-              Sign in
+              {t("auth.signIn")}
             </Link>
           </p>
         </div>

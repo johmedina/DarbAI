@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { useState, useRef } from 'react';
 import { PaperclipIcon, CrossIcon, ArrowUpIcon } from "./icons";
+import { useLanguage } from '@/context/LanguageContext';
 
 interface ChatInputProps {
   question: string;
@@ -17,14 +18,14 @@ interface ChatInputProps {
 export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, setImage, placeholder, emphasizeAttach, allowImage = true }: ChatInputProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef  = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragCounterRef = useRef(0);
   const previewUrl = image ? URL.createObjectURL(image) : null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith('image/')) { toast.error('Please select an image file.'); return; }
+      if (!file.type.startsWith('image/')) { toast.error(t("errors.selectImage")); return; }
       setImage(file);
     }
     e.target.value = '';
@@ -50,7 +51,7 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { toast.error('Only image files are supported.'); return; }
+    if (!file.type.startsWith('image/')) { toast.error(t("errors.onlyImage")); return; }
     setImage(file);
   };
 
@@ -65,6 +66,8 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
     if (!canSubmit || isLoading) return;
     onSubmit(question);
   };
+
+  const { t } = useLanguage();
 
   return (
     <div
@@ -97,7 +100,7 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
             background: "rgba(247,246,241,.88)", pointerEvents: "none",
             border: "2px dashed var(--road)",
           }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--road-deep)" }}>Drop image here</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--road-deep)" }}>{t("ui.dropImageHere")}</span>
           </div>
         )}
 
@@ -107,12 +110,12 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
             <div style={{ position: "relative", width: 52, height: 52, flexShrink: 0 }}>
               <img
                 src={previewUrl}
-                alt="attachment"
+                alt={t('ui.uploaded')}
                 style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 10, border: "1px solid var(--line)" }}
               />
               <button
                 onClick={() => setImage(null)}
-                aria-label="Remove image"
+                aria-label={t("ui.removeImage")}
                 style={{
                   position: "absolute", top: -7, right: -7, width: 20, height: 20,
                   borderRadius: 99, background: "var(--ink)", color: "var(--bg)",
@@ -127,7 +130,7 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
                 {image?.name}
               </div>
-              <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>Click × to remove</div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>{t("ui.clickToRemove")}</div>
             </div>
           </div>
         )}
@@ -143,8 +146,8 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
-                aria-label="Attach image"
-                title="Attach image"
+                aria-label={t("ui.attachImage")}
+                title={t("ui.attachImage")}
                 style={{
                   width: 38, height: 38, borderRadius: 11, flexShrink: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
@@ -167,12 +170,12 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
             ref={textareaRef}
             rows={1}
             value={question}
-            placeholder={placeholder ?? "Ask about driving in Qatar…"}
+            placeholder={placeholder ?? t("modes.ask.placeholder")}
             onChange={e => { setQuestion(e.target.value); autoResize(); }}
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                if (isLoading) { toast.error('Please wait for the model to finish its response!'); }
+                if (isLoading) { toast.error(t("errors.waitForModel")); }
                 else { submit(); }
               }
             }}
@@ -189,7 +192,7 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
           <button
             onClick={submit}
             disabled={!canSubmit || isLoading}
-            aria-label="Send"
+            aria-label={t("ui.send")}
             style={{
               width: 38, height: 38, borderRadius: 11, flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -208,7 +211,7 @@ export const ChatInput = ({ question, setQuestion, onSubmit, isLoading, image, s
       </div>
 
       <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-3)", marginTop: 9 }}>
-        Salama can make mistakes — check the trust score and verify critical info with the General Traffic Department.
+        {t('ui.disclaimer')}
       </p>
     </div>
   );

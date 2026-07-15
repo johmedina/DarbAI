@@ -17,13 +17,14 @@ import { Overview } from "@/components/custom/overview";
 import { Header } from "@/components/custom/header";
 import { Sidebar, ChatSession, HistoryMessage } from "@/components/custom/sidebar";
 import { ThemeToggle } from "@/components/custom/theme-toggle";
-import { ModeSwitch, ChatMode, MODES } from "@/components/custom/mode-switch";
+import { ModeSwitch, ChatMode } from "@/components/custom/mode-switch";
 import { v4 as uuidv4 } from "uuid";
 import { PanelLeftIcon, LogOutIcon, Lock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiClient, API_BASE, streamSSE, streamSSEForm } from "@/lib/apiClient";
 import { toAuthenticatedBlobUrl } from "@/lib/imageCache";
 import { toast } from "sonner";
+import { useLanguage } from '@/context/LanguageContext';
 
 // ── Countries ──────────────────────────────────────────────────────────────────
 const COUNTRIES = [
@@ -151,6 +152,8 @@ export function Chat() {
   useEffect(() => { if (mode !== "read") setImage(null); }, [mode]);
   // Which assistant message index is currently being regenerated (-1 = none)
   const [regeneratingIdx, setRegeneratingIdx] = useState(-1)
+
+  const { t } = useLanguage();
 
   // Country — resets on every new chat, persists for the life of one chat
   const [country, setCountry] = useState<string | null>(null)
@@ -287,10 +290,10 @@ export function Chat() {
           );
           return { ...m, versions };
         }));
-        toast.success("Thanks for your feedback!");
+        toast.success(t('feedback.thanks'));
       }
     } catch {
-      toast.error("Couldn't save feedback, please try again.");
+      toast.error(t('feedback.saveError'));
     }
   }
 
@@ -549,9 +552,9 @@ export function Chat() {
     const messageText = text ?? question;
 
     if (mode === "read") {
-      if (!image) { toast.error("Attach a sign photo to identify it."); return; }
+      if (!image) { toast.error(t('errors.attachSignPhoto')); return; }
     } else if (mode === "name") {
-      if (!messageText.trim()) { toast.error("Describe the sign you're looking for."); return; }
+      if (!messageText.trim()) { toast.error(t('errors.describeSign')); return; }
     } else {
       if (!messageText.trim() && !image) return;
     }
@@ -628,7 +631,7 @@ export function Chat() {
           const updated = { ...prev[idx], messages: [...prev[idx].messages, newMsg], last_updated: newMsg.timestamp };
           return [updated, ...prev.filter((_, i) => i !== idx)];
         }
-        return [{ chat_id: chatId, title: (messageText || "Sign chat").slice(0, 40), last_updated: newMsg.timestamp, messages: [newMsg] }, ...prev];
+        return [{ chat_id: chatId, title: (messageText || t('ui.signChat')).slice(0, 40), last_updated: newMsg.timestamp, messages: [newMsg] }, ...prev];
       });
     }
 
@@ -745,7 +748,7 @@ export function Chat() {
               const updated = [...prev];
               updated[idx] = {
                 ...updated[idx],
-                message: "Sorry, there was an error. Please try again.",
+                message: t('errors.generic'),
                 is_streaming: false,
               };
               return updated;
@@ -857,7 +860,7 @@ export function Chat() {
               const updated = [...prev];
               updated[idx] = {
                 ...updated[idx],
-                message: "Sorry, there was an error. Please try again.",
+                message: t('errors.generic'),
                 is_streaming: false,
               };
               return updated;
@@ -1046,7 +1049,7 @@ export function Chat() {
               const updated = [...prev];
               updated[idx] = {
                 ...updated[idx],
-                message: "Sorry, there was an error. Please try again.",
+                message: t('errors.generic'),
                 is_streaming: false,
               };
               return updated;
@@ -1069,7 +1072,7 @@ export function Chat() {
           const updated = [...prev];
           updated[idx] = {
             ...updated[idx],
-            message: "Sorry, there was an error processing your request. Please try again.",
+            message: t('errors.processing'),
             is_streaming: false,
           };
           return updated;
@@ -1080,7 +1083,7 @@ export function Chat() {
         return [
           ...base,
           {
-            message: "Sorry, there was an error processing your request. Please try again.",
+            message: t('errors.processing'),
             role: ChatMessageRoleType.ASSISTANT,
             chat_id: chatId ?? urlChatId ?? "",
             generation_type: ChatMessageGenerationType.TEXT,
@@ -1132,7 +1135,7 @@ export function Chat() {
         >
           <button
             onClick={() => setSidebarOpen((o) => !o)}
-            aria-label="Toggle sidebar"
+            aria-label={t('ui.toggleSidebar')}
             style={{
               width: 36, height: 36, borderRadius: 9, flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -1184,7 +1187,7 @@ export function Chat() {
                   outline: "none",
                 }}
               >
-                <option value="">Select country</option>
+                <option value="">{t('ui.selectCountryOption')}</option>
                 {COUNTRIES.map(c => (
                   <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
                 ))}
@@ -1210,8 +1213,8 @@ export function Chat() {
 
           <button
             onClick={logout}
-            aria-label="Log out"
-            title="Log out"
+            aria-label={t('ui.logOut')}
+            title={t('ui.logOut')}
             style={{
               width: 36, height: 36, borderRadius: 9,
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -1285,10 +1288,10 @@ export function Chat() {
             setImage={setImage}
             placeholder={
               !country
-                ? "Select a country above to start chatting..."
+                ? t("ui.selectCountry")
                 : mode === "ask"
                   ? `Ask about driving in ${activeCountry?.name ?? "your country"}…`
-                  : MODES[mode].placeholder
+                  : t(`modes.${mode}.placeholder`)
             }
             emphasizeAttach={mode === "read"}
             allowImage={mode === "read"}

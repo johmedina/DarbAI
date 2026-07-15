@@ -5,6 +5,7 @@ import { OverlayTrigger, Tooltip } from "react-bootstrap"
 import { BookOpen } from "lucide-react"
 import { DislikeFeedbackModal } from "./dislike-feedback-modal"
 import { MessageActionsMenu } from "./message-actions-menu"
+import { useLanguage } from '@/context/LanguageContext'
 
 const RELIABILITY_THRESHOLD = -0.120;
 
@@ -55,15 +56,16 @@ export function MessageActions({
   onFollowUp
 }: MessageActionsProps) {
   const [copied, setCopied] = useState(false)
+  const { t } = useLanguage()
   const [showDislikeModal, setShowDislikeModal] = useState(false)
 
   // Derived from persisted feedback — not local state, survives re-renders
-  const liked    = feedback?.feedback_type === FeedbackType.LIKE
+  const liked = feedback?.feedback_type === FeedbackType.LIKE
   const disliked = feedback?.feedback_type === FeedbackType.DISLIKE
   const dislikeReason = disliked
-    ? (feedback?.reason === "Other" && feedback?.custom_reason
-        ? feedback.custom_reason
-        : feedback?.reason)
+    ? (feedback?.reason === "other" && feedback?.custom_reason
+      ? feedback.custom_reason
+      : feedback?.reason)
     : null
 
   const handleCopy = () => {
@@ -77,16 +79,16 @@ export function MessageActions({
     ? Number((message as any).generation_time_seconds)
     : undefined
 
-  const hasVersions   = versions.length > 1
+  const hasVersions = versions.length > 1
   const totalVersions = versions.length
-  const displayNum    = hasVersions ? activeVersionIdx + 1 : null
+  const displayNum = hasVersions ? activeVersionIdx + 1 : null
 
-  const hasUQ      = typeof totalReliability === "number" && Number.isFinite(totalReliability);
-  const ok         = hasUQ && totalReliability! > RELIABILITY_THRESHOLD;
+  const hasUQ = typeof totalReliability === "number" && Number.isFinite(totalReliability);
+  const ok = hasUQ && totalReliability! > RELIABILITY_THRESHOLD;
   const confidence = hasUQ ? Math.max(0, Math.min(1, 1 + totalReliability! / 0.2)) : 0;
-  const color      = ok ? "var(--reliable)"      : "var(--caution)";
-  const bg         = ok ? "var(--reliable-bg)"   : "var(--caution-bg)";
-  const line       = ok ? "var(--reliable-line)" : "var(--caution-line)";
+  const color = ok ? "var(--reliable)" : "var(--caution)";
+  const bg = ok ? "var(--reliable-bg)" : "var(--caution-bg)";
+  const line = ok ? "var(--reliable-line)" : "var(--caution-line)";
 
   const iconBtn: React.CSSProperties = {
     width: 30, height: 30, borderRadius: 8,
@@ -97,14 +99,14 @@ export function MessageActions({
   };
 
   const onHover = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.background  = "var(--surface-2)";
+    e.currentTarget.style.background = "var(--surface-2)";
     e.currentTarget.style.borderColor = "var(--line)";
-    e.currentTarget.style.color       = "var(--ink)";
+    e.currentTarget.style.color = "var(--ink)";
   };
   const onUnhover = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.background  = "transparent";
+    e.currentTarget.style.background = "transparent";
     e.currentTarget.style.borderColor = "transparent";
-    e.currentTarget.style.color       = "var(--ink-3)";
+    e.currentTarget.style.color = "var(--ink-3)";
   };
 
   return (
@@ -138,7 +140,7 @@ export function MessageActions({
           >
             <BookOpen size={14} />
             <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-.01em" }}>
-              Sources
+              {t('ui.sources')}
             </span>
             <span
               style={{
@@ -151,16 +153,16 @@ export function MessageActions({
                 color: "var(--ink-3)",
               }}
             >
-              {[...(new Set((message as any).rag_sources.flatMap((s: any) => s.pages)))].length} pages
+              {[...(new Set((message as any).rag_sources.flatMap((s: any) => s.pages)))].length} {t('ui.pages')}
             </span>
           </button>
         </div>
       )}
 
-      
+
 
       {/* Copy */}
-      <button style={iconBtn} onClick={handleCopy} aria-label="Copy" disabled={isRegenerating}
+      <button style={iconBtn} onClick={handleCopy} aria-label={t('ui.copy')} disabled={isRegenerating}
         onMouseEnter={onHover} onMouseLeave={onUnhover}>
         {copied
           ? <Check size={15} style={{ color: "var(--reliable)" }} />
@@ -172,12 +174,12 @@ export function MessageActions({
       <button
         style={{
           ...iconBtn,
-          color:       liked ? "var(--reliable)"     : "var(--ink-3)",
-          background:  liked ? "var(--reliable-bg)"  : "transparent",
+          color: liked ? "var(--reliable)" : "var(--ink-3)",
+          background: liked ? "var(--reliable-bg)" : "transparent",
           borderColor: liked ? "var(--reliable-line)" : "transparent",
         }}
         onClick={() => onFeedback?.(FeedbackType.LIKE)}
-        aria-label="Helpful"
+        aria-label={t('ui.helpful')}
         disabled={isRegenerating}
         onMouseEnter={onHover} onMouseLeave={onUnhover}
       >
@@ -188,19 +190,19 @@ export function MessageActions({
       <button
         style={{
           ...iconBtn,
-          color:       disliked ? "var(--caution)"     : "var(--ink-3)",
-          background:  disliked ? "var(--caution-bg)"  : "transparent",
+          color: disliked ? "var(--caution)" : "var(--ink-3)",
+          background: disliked ? "var(--caution-bg)" : "transparent",
           borderColor: disliked ? "var(--caution-line)" : "transparent",
         }}
         onClick={() => disliked ? onFeedback?.(FeedbackType.DISLIKE) : setShowDislikeModal(true)}
-        aria-label="Not helpful"
+        aria-label={t('ui.notHelpful')}
         disabled={isRegenerating}
         onMouseEnter={onHover} onMouseLeave={onUnhover}
       >
         <ThumbsDown size={15} fill={disliked ? "var(--caution)" : "none"} />
       </button>
 
-      
+
 
       {/* Dislike modal */}
       {showDislikeModal && (
@@ -218,18 +220,18 @@ export function MessageActions({
 
       {/* Regenerate */}
       {onRegenerate && (
-        <OverlayTrigger placement="top" overlay={<Tooltip>Regenerate response</Tooltip>}>
+        <OverlayTrigger placement="top" overlay={<Tooltip>{t('ui.regenerate')}</Tooltip>}>
           <button
             style={iconBtn}
             onClick={onRegenerate}
             disabled={isRegenerating}
-            aria-label="Regenerate"
+            aria-label={t('ui.regenerate')}
             onMouseEnter={onHover} onMouseLeave={onUnhover}
           >
             <RotateCcw
               size={15}
               style={{
-                color:     isRegenerating ? "var(--ink-3)" : undefined,
+                color: isRegenerating ? "var(--ink-3)" : undefined,
                 animation: isRegenerating ? "spin 1s linear infinite" : undefined,
               }}
             />
@@ -244,7 +246,7 @@ export function MessageActions({
             style={iconBtn}
             disabled={activeVersionIdx === 0 || isRegenerating}
             onClick={() => onVersionChange(activeVersionIdx - 1)}
-            aria-label="Previous version"
+            aria-label={t('ui.previousVersion')}
             onMouseEnter={onHover} onMouseLeave={onUnhover}
           >
             <ChevronLeft size={14} />
@@ -259,7 +261,7 @@ export function MessageActions({
             style={iconBtn}
             disabled={activeVersionIdx === totalVersions - 1 || isRegenerating}
             onClick={() => onVersionChange(activeVersionIdx + 1)}
-            aria-label="Next version"
+            aria-label={t('ui.nextVersion')}
             onMouseEnter={onHover} onMouseLeave={onUnhover}
           >
             <ChevronRight size={14} />
@@ -302,17 +304,17 @@ export function MessageActions({
             transition: "transform .15s, box-shadow .15s",
           }}
           onMouseEnter={e => { e.currentTarget.style.boxShadow = "var(--shadow-sm)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-          onMouseLeave={e => { e.currentTarget.style.boxShadow = "none";             e.currentTarget.style.transform = "none"; }}
+          onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}
         >
           <span style={{ color, display: "flex" }}>
             <RelRing value={confidence} color={color} />
           </span>
           <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-.01em" }}>
-            {ok ? "Verified reliable" : "Use caution"}
+            {ok ? t('ui.verifiedReliable') : t('ui.useCaution')}
           </span>
           <span style={{ width: 1, height: 13, background: line, flexShrink: 0 }} />
           <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8, display: "inline-flex", alignItems: "center", gap: 4 }}>
-            How we know
+            {t('ui.howWeKnow')}
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ transform: "rotate(90deg)" }}>
               <path d="M7 10l5 5 5-5" />
             </svg>
@@ -334,8 +336,10 @@ export function MessageActions({
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, color: "var(--caution)" }}>
             <ThumbsDown size={13} fill="var(--caution)" stroke="var(--caution)" />
             <span style={{ color: "var(--ink-2)" }}>
-              You marked this unhelpful —{" "}
-              <strong style={{ color: "var(--ink)" }}>{dislikeReason}</strong>
+              {t('ui.youMarkedUnhelpful')} {" "}
+              <strong style={{ color: "var(--ink)" }}>
+                {dislikeReason && (dislikeReason === feedback?.custom_reason ? dislikeReason : t(`feedback.reasons.${dislikeReason}`))}
+              </strong>
             </span>
           </span>
           <button
@@ -351,7 +355,7 @@ export function MessageActions({
               flexShrink: 0,
             }}
           >
-            Change
+            {t('ui.change')}
           </button>
         </div>
       )}

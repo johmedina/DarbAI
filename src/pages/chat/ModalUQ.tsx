@@ -2,6 +2,7 @@ import { FC } from 'react';
 import { ShieldCheck, X, Info } from 'lucide-react';
 import { ChatMessageModel } from '../../interfaces/interfaces';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { useLanguage } from '@/context/LanguageContext'
 
 interface Props {
   chatMessageResponse: ChatMessageModel
@@ -25,14 +26,14 @@ type TokenStat = {
 // Coletoku (reliability_with_hidden_layers): lower = more uncertain
 const COLETOKU_THRESHOLD = -0.088;
 // LogTokU  (logtoku per-token):               lower = more uncertain
-const LOGTOKU_THRESHOLD    = -0.293;
+const LOGTOKU_THRESHOLD = -0.293;
 // GLU:                                        lower (more negative) = more uncertain
-const GLU_THRESHOLD        = -0.120;
+const GLU_THRESHOLD = -0.120;
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 const belowIsRed = (v: number, threshold: number): "red" | "green" | "black" => {
   if (v < threshold) return "red";
-  if (v === 0)       return "green";
+  if (v === 0) return "green";
   return "black";
 };
 
@@ -71,21 +72,33 @@ const RelRing = ({
 }) => {
   const r = (size - sw) / 2;
   const c = 2 * Math.PI * r;
+  const dash = c * value;
   return (
-    <svg
-      width={size} height={size} viewBox={`0 0 ${size} ${size}`}
-      style={{ transform: "rotate(-90deg)", display: "block" }}
-    >
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none"
-        stroke="currentColor" strokeWidth={sw} opacity={0.18} />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none"
-        stroke={color} strokeWidth={sw} strokeLinecap="round"
-        strokeDasharray={c} strokeDashoffset={c * (1 - value)}
-        style={{ transition: "stroke-dashoffset .6s cubic-bezier(.2,.7,.2,1)" }} />
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="var(--line)"
+        strokeWidth={sw}
+        opacity={0.25}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={sw}
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={c - dash}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+      />
     </svg>
   );
-};
-
+}
 // ── Metric card ───────────────────────────────────────────────────────────────
 const MetricCard = ({
   label, sublabel, hint, value, threshold,
@@ -147,8 +160,8 @@ function TokenViz({
   tokenData, colorFn, tooltipFn, heading, subheading,
 }: {
   tokenData: TokenStat[];
-  colorFn: (t: TokenStat) => "red" | "green" | "black";
-  tooltipFn: (t: TokenStat, i: number) => React.ReactNode;
+  colorFn: (token: TokenStat) => "red" | "green" | "black";
+  tooltipFn: (token: TokenStat, i: number) => React.ReactNode;
   heading: string;
   subheading: string;
 }) {
@@ -169,12 +182,12 @@ function TokenViz({
         marginBottom: 12,
       }}>
         <div style={{ lineHeight: 1.95, fontSize: 15, wordBreak: "break-word" }}>
-          {tokenData.map((t, i) => {
-            if (!t || typeof t.token !== "string") return null;
-            const color = colorFn(t);
+          {tokenData.map((token, i) => {
+            if (!token || typeof token.token !== "string") return null;
+            const color = colorFn(token);
             const tokenSpan = (
               <span
-                key={`${i}-${t.token}`}
+                key={`${i}-${token.token}`}
                 style={{
                   color,
                   fontWeight: color === "red" ? 600 : 400,
@@ -184,7 +197,7 @@ function TokenViz({
                   cursor: "help",
                 }}
               >
-                {t.token}
+                {token.token}
               </span>
             );
             return (
@@ -193,7 +206,7 @@ function TokenViz({
                 placement="top"
                 overlay={
                   <Tooltip id={`uq-tip-${heading}-${i}`}>
-                    {tooltipFn(t, i)}
+                    {tooltipFn(token, i)}
                   </Tooltip>
                 }
               >
@@ -209,24 +222,25 @@ function TokenViz({
 
 // ── Main component ────────────────────────────────────────────────────────────
 const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
+  const { t } = useLanguage()
   if (!show) return null;
 
-  const tokenData      = (chatMessageResponse as any)?.token_data as TokenStat[] | undefined;
+  const tokenData = (chatMessageResponse as any)?.token_data as TokenStat[] | undefined;
   const totalColetoku = (chatMessageResponse as any)?.total_reliability_with_hidden_layers as number | undefined;
-  const totalLogtoku   = (chatMessageResponse as any)?.total_logtoku as number | undefined;
-  const totalGLU       = (chatMessageResponse as any)?.total_glu    as number | undefined;
+  const totalLogtoku = (chatMessageResponse as any)?.total_logtoku as number | undefined;
+  const totalGLU = (chatMessageResponse as any)?.total_glu as number | undefined;
 
 
-  const reliable   = isReliable(totalGLU);
+  const reliable = isReliable(totalGLU);
   const hasColetoku = typeof totalColetoku === "number" && Number.isFinite(totalColetoku);
-  const hasGLU     = typeof totalGLU === "number" && Number.isFinite(totalGLU);
+  const hasGLU = typeof totalGLU === "number" && Number.isFinite(totalGLU);
   // Confidence ring: normalise GLU into [0,1] for display
   const confidence = hasGLU
     ? Math.max(0, Math.min(1, 1 + totalGLU! / Math.abs(GLU_THRESHOLD * 2)))
     : 0;
 
   const color = reliable ? "var(--reliable)" : "var(--caution)";
-  const bg    = reliable ? "var(--reliable-bg)" : "var(--caution-bg)";
+  const bg = reliable ? "var(--reliable-bg)" : "var(--caution-bg)";
   const linec = reliable ? "var(--reliable-line)" : "var(--caution-line)";
 
   return (
@@ -272,16 +286,16 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
               </div>
               <div>
                 <h2 style={{ fontSize: 16, fontWeight: 650, letterSpacing: "-.02em", margin: 0, color: "var(--ink)" }}>
-                  Uncertainty Quantification
+                  {t('message.uqTitle')}
                 </h2>
                 <p style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 2, marginBottom: 0 }}>
-                  How sure Salama is about this answer
+                  {t('message.uqSubtitle')}
                 </p>
               </div>
             </div>
             <button
               onClick={handleClose}
-              aria-label="Close"
+              aria-label={t('ui.close')}
               style={{
                 color: "var(--ink-2)", padding: 6, borderRadius: 8, marginTop: -2,
                 background: "transparent", border: "none", cursor: "pointer",
@@ -319,12 +333,12 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
                 fontSize: 11, fontWeight: 700, letterSpacing: ".05em",
                 textTransform: "uppercase", color, marginBottom: 4,
               }}>
-                {reliable ? "Reliable" : "Use caution"}
+                {reliable ? t('message.uqReliableLabel') : t('ui.useCaution')}
               </div>
               <div style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.5, maxWidth: 420 }}>
                 {reliable
-                  ? "The model is confident the answer is grounded in the source documents."
-                  : "Some parts of this answer may not be fully grounded. Verify with official sources before acting."}
+                  ? t('message.uqReliableDesc')
+                  : t('message.uqCautionDesc')}
               </div>
             </div>
           </div>
@@ -333,27 +347,27 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
           <div style={{ display: "flex", gap: 10, marginBottom: 22, flexWrap: "wrap" }}>
             {hasGLU && (
               <MetricCard
-                label="GLU"
-                sublabel="Global–Local Uncertainty"
-                hint="GLU checks the model's confidence in two ways at once: how much it hesitated word-by-word as it wrote the answer (local), and how scrambled or disorganized its internal train of thought looked while doing so (global). It then combines them, so a moment of word-level doubt counts for more when the model's internal state also looks messy — giving a single, more trustworthy confidence score."
+                label={t('message.metrics.GLU.label')}
+                sublabel={t('message.metrics.GLU.sublabel')}
+                hint={t('message.metrics.GLU.hint')}
                 value={totalGLU}
                 threshold={GLU_THRESHOLD}
               />
             )}
             {hasColetoku && (
               <MetricCard
-                label="Coletoku"
-                sublabel="Collision-Entropy Token Uncertainty"
-                hint="ColETokU measures how spread out the model's bets were across many possible next words instead of being concentrated on one clear choice. It does this by asking, 'if I drew two answers at random, how likely are they to match?' — when a match is unlikely, the model was hedging across lots of options, which signals uncertainty."
+                label={t('message.metrics.Coletoku.label')}
+                sublabel={t('message.metrics.Coletoku.sublabel')}
+                hint={t('message.metrics.Coletoku.hint')}
                 value={totalColetoku}
                 threshold={COLETOKU_THRESHOLD}
               />
             )}
             {typeof totalLogtoku === "number" && Number.isFinite(totalLogtoku) && (
               <MetricCard
-                label="LogTokU"
-                sublabel="Logit-space Token Uncertainty"
-                hint="LogTokU reads the model's raw internal scores (before they're turned into final probabilities) as a kind of 'evidence tally' and separates two different reasons it might be unsure: the question genuinely has several good answers, versus the model simply doesn't know enough. So it tells you not just how uncertain the model is, but why."
+                label={t('message.metrics.LogTokU.label')}
+                sublabel={t('message.metrics.LogTokU.sublabel')}
+                hint={t('message.metrics.LogTokU.hint')}
                 value={totalLogtoku}
                 threshold={LOGTOKU_THRESHOLD}
               />
@@ -373,16 +387,16 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
                   fontSize: 12.5, fontWeight: 700, letterSpacing: ".02em",
                   textTransform: "uppercase", color: "var(--ink-2)", margin: 0,
                 }}>
-                  Token-level analysis
+                  {t('message.tokenLevelAnalysis')}
                 </h3>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 10, fontSize: 11.5, color: "var(--ink-2)" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <i style={{ width: 9, height: 9, borderRadius: 3, background: "var(--caution)", display: "inline-block" }} />
-                    Flagged
+                    {t('ui.flagged')}
                   </span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <i style={{ width: 9, height: 9, borderRadius: 3, background: "var(--ink-3)", display: "inline-block" }} />
-                    Confident
+                    {t('ui.confident')}
                   </span>
                 </span>
               </div>
@@ -393,16 +407,16 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
                 subheading="— AU = collision entropy, EU = Dirichlet evidence, reliability = -(AU x EU)"
                 tokenData={tokenData}
                 colorFn={coletokuColor}
-                tooltipFn={(t) => (
+                tooltipFn={(token) => (
                   <div style={{ fontSize: 12 }}>
-                    <div><strong>AU:</strong> {fmt(t.au)}</div>
-                    <div><strong>EU:</strong> {fmt(t.eu)}</div>
-                    <div><strong>LogTokU:</strong> {fmt(t.logtoku)}</div>
-                    <div><strong>Coletoku:</strong> {fmt(t.reliability_with_hidden_layers)}</div>
-                    <div><strong>Late top-1 prob:</strong> {fmt((t as any).late_mean_top1_prob)}</div>
-                    <div><strong>Late agreement:</strong> {fmt((t as any).late_agreement_rate)}</div>
-                    <div><strong>Late entropy:</strong> {fmt((t as any).late_mean_entropy)}</div>
-                    <div><strong>Collision Entropy:</strong> {fmt(t.collision_entropy)}</div>
+                    <div><strong>{t('message.metricLabels.AU')}</strong> {fmt(token.au)}</div>
+                    <div><strong>{t('message.metricLabels.EU')}</strong> {fmt(token.eu)}</div>
+                    <div><strong>{t('message.metricLabels.LogTokU')}</strong> {fmt(token.logtoku)}</div>
+                    <div><strong>{t('message.metricLabels.Coletoku')}</strong> {fmt(token.reliability_with_hidden_layers)}</div>
+                    <div><strong>{t('message.metricLabels.lateTop1')}</strong> {fmt((token as any).late_mean_top1_prob)}</div>
+                    <div><strong>{t('message.metricLabels.lateAgreement')}</strong> {fmt((token as any).late_agreement_rate)}</div>
+                    <div><strong>{t('message.metricLabels.lateEntropy')}</strong> {fmt((token as any).late_mean_entropy)}</div>
+                    <div><strong>{t('message.metricLabels.collisionEntropy')}</strong> {fmt(token.collision_entropy)}</div>
                   </div>
                 )}
               />
@@ -413,21 +427,21 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
                 subheading="— pure logit-level uncertainty -(AU × EU) from Ma et al. (2025)"
                 tokenData={tokenData}
                 colorFn={logtokuColor}
-                tooltipFn={(t) => (
+                tooltipFn={(token) => (
                   <div style={{ fontSize: 12 }}>
-                    <div><strong>AU:</strong> {fmt(t.au)}</div>
-                    <div><strong>EU:</strong> {fmt(t.eu)}</div>
-                    <div><strong>LogTokU -(AU×EU):</strong> {fmt(t.logtoku)}</div>
-                    <div><strong>Entropy:</strong> {fmt(t.entropy)}</div>
-                    <div><strong>Collision Entropy:</strong> {fmt(t.collision_entropy)}</div>
-                    <div><strong>Reliability:</strong> {fmt(t.reliability)}</div>
+                    <div><strong>{t('message.metricLabels.AU')}</strong> {fmt(token.au)}</div>
+                    <div><strong>{t('message.metricLabels.EU')}</strong> {fmt(token.eu)}</div>
+                    <div><strong>{t('message.metricLabels.LogTokU')}</strong> {fmt(token.logtoku)}</div>
+                    <div><strong>{t('message.metricLabels.entropy')}</strong> {fmt(token.entropy)}</div>
+                    <div><strong>{t('message.metricLabels.collisionEntropy')}</strong> {fmt(token.collision_entropy)}</div>
+                    <div><strong>{t('message.metricLabels.reliability')}</strong> {fmt(token.reliability)}</div>
                   </div>
                 )}
               />
             </>
           )}
 
-          
+
 
           {/* Footer */}
           <p style={{
@@ -435,7 +449,7 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
             lineHeight: 1.6, display: "flex", gap: 7, marginBottom: 0,
           }}>
             <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-            Highlighted words are where the model was least certain. Salama always shows this so you can judge an answer before acting on it on the road.
+            {t('message.uqHighlightDesc')}
           </p>
         </div>
       </aside>

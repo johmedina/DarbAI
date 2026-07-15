@@ -6,6 +6,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import logo from "@/assets/images/logo.png";
+import { useLanguage } from '@/context/LanguageContext'
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -15,7 +16,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     // never disappears on reload — same visual as the app header
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-6 bg-background">
-        <img src={logo} alt="Salama" className="h-16 w-auto" />
+        <img src={logo} alt={useLanguage().t('header.logoAlt')} className="h-16 w-auto" />
         <div className="h-7 w-7 animate-spin rounded-full border-4 border-muted border-t-primary" />
       </div>
     );

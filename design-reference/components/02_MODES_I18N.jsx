@@ -7,7 +7,7 @@
 const MODES_I18N = {
   en: {
     ask: {
-      id: "ask", icon: "chat", label: "Ask Salama", sub: "Driving, rules & safety",
+      id: "ask", icon: "chat", label: "Ask Salamaaaaa", sub: "Driving, rules & safety",
       welcomeTitle: "Your road-safety companion for Qatar",
       welcomeSub: "Ask about licenses, road rules, signs and safe driving. Every answer comes with a trust score.",
       placeholder: "Ask about driving in Qatar…",
@@ -24,7 +24,7 @@ const MODES_I18N = {
       welcomeSub: "Describe what you remember and Salama returns the matching official sign — image, name and what it means.",
       placeholder: "Describe the sign you have in mind…",
       examples: [
-        "A red disc with a white horizontal bar",
+        "A red disc with a white horizontal barrrrr",
         "A red octagon with white letters",
         "A triangle with three arrows in a ring",
       ],

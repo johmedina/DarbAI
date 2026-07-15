@@ -1,7 +1,8 @@
 import { useRef } from "react";
 import { CreditCard, Wind, AlertTriangle, Car, Search, Globe, HelpCircle } from "lucide-react";
 import logo from "@/assets/images/logo.png";
-import { ChatMode, MODES } from "./mode-switch";
+import { ChatMode } from "./mode-switch";
+import { useLanguage } from '@/context/LanguageContext';
 
 export interface CountryOption {
   code: string
@@ -51,7 +52,10 @@ export const Overview = ({
   suggestedQuestions = [], suggestionsLoading = false,   // NEW
 }: OverviewProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
-  const m = MODES[mode];
+  const { t } = useLanguage();
+  const welcomeTitle = t(`modes.${mode}.welcomeTitle`);
+  const welcomeSub = t(`modes.${mode}.welcomeSub`);
+  const examples = t(`modes.${mode}.examples`) ?? [];
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -68,13 +72,13 @@ export const Overview = ({
         textAlign: "center",
       }}
     >
-      <img src={logo} alt="Salama" style={{ height: mode === "ask" ? 52 : 40, width: "auto" }} />
+      <img src={logo} alt={t('header.logoAlt')} style={{ height: mode === "ask" ? 52 : 40, width: "auto" }} />
       <div className="road-line" style={{ width: 116, margin: mode === "ask" ? "20px 0 22px" : "18px 0 20px" }} />
       <h1 style={{ fontSize: 24, fontWeight: 650, letterSpacing: "-.025em", color: "var(--ink)" }}>
-        {m.welcomeTitle}
+        {welcomeTitle}
       </h1>
       <p style={{ fontSize: 15, color: "var(--ink-2)", marginTop: 8, maxWidth: 480, lineHeight: 1.55 }}>
-        {m.welcomeSub}
+        {welcomeSub}
       </p>
 
       {/* Country gate — big picker before a country is chosen, compact
@@ -83,10 +87,10 @@ export const Overview = ({
       {!country ? (
         <div style={{ marginTop: 28, width: "100%", maxWidth: 480 }}>
           <div style={{ fontSize: 15, fontWeight: 650, color: "var(--ink)", marginBottom: 4 }}>
-            🌐 Which country's rules?
+            {t('overview.whichCountry')}
           </div>
           <p style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.5, marginBottom: 16 }}>
-            Salama now has road materials for {countries.length} countries. Choose one to use its official rules for this chat.
+            {t('overview.countryDesc').replace('{count}', String(countries.length))}
           </p>
           <div style={{ position: "relative", width: "100%" }}>
             <select
@@ -100,7 +104,7 @@ export const Overview = ({
                 cursor: "pointer", outline: "none",
               }}
             >
-              <option value="">Select country</option>
+              <option value="">{t('ui.selectCountryOption')}</option>
               {countries.map((c) => (
                 <option key={c.code} value={c.code}>{c.flag}  {c.name}</option>
               ))}
@@ -124,7 +128,7 @@ export const Overview = ({
           </span>
           <span style={{ textAlign: "left" }}>
             <span style={{ display: "block", fontSize: 10.5, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--ink-3)" }}>
-              Rule set
+              {t('overview.ruleSet')}
             </span>
             <span style={{ display: "block", fontSize: 14.5, fontWeight: 650, color: "var(--ink)" }}>
               {countries.find((c) => c.code === country)?.name}
@@ -140,33 +144,33 @@ export const Overview = ({
             }}
           >
             <Globe size={13} />
-            Change
+            {t('overview.change')}
           </button>
         </div>
       )}
 
       {/* ASK — suggestion grid */}
       {country && mode === "ask" && (
-  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 32, width: "100%", maxWidth: 620 }}>
-    {suggestionsLoading
-      ? Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} style={{ height: 70, borderRadius: 14, border: "1px solid var(--line)", background: "var(--surface-2)", opacity: 0.5 }} />
-        ))
-      : suggestedQuestions.map((q, i) => (
-          <button key={i} onClick={() => onSuggest?.(q)} className="sugg-card" style={{
-            display: "flex", alignItems: "center", gap: 13, textAlign: "start",
-            padding: "15px 16px", borderRadius: 14, border: "1px solid var(--line)",
-            background: "var(--surface)", cursor: "pointer",
-          }}>
-            <span style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: "var(--surface-2)", border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink)" }}>
-              <HelpCircle size={18} />
-            </span>
-            <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-.01em", color: "var(--ink)" }}>{q}</span>
-          </button>
-        ))
-    }
-  </div>
-)}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 32, width: "100%", maxWidth: 620 }}>
+          {suggestionsLoading
+            ? Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ height: 70, borderRadius: 14, border: "1px solid var(--line)", background: "var(--surface-2)", opacity: 0.5 }} />
+            ))
+            : suggestedQuestions.map((q, i) => (
+              <button key={i} onClick={() => onSuggest?.(q)} className="sugg-card" style={{
+                display: "flex", alignItems: "center", gap: 13, textAlign: "start",
+                padding: "15px 16px", borderRadius: 14, border: "1px solid var(--line)",
+                background: "var(--surface)", cursor: "pointer",
+              }}>
+                <span style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: "var(--surface-2)", border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink)" }}>
+                  <HelpCircle size={18} />
+                </span>
+                <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-.01em", color: "var(--ink)" }}>{q}</span>
+              </button>
+            ))
+          }
+        </div>
+      )}
 
       {/* READ — big upload dropzone */}
       {country && mode === "read" && (
@@ -189,11 +193,11 @@ export const Overview = ({
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="16" rx="2.4"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M21 16l-5-5L5 20"/>
+                <rect x="3" y="4" width="18" height="16" rx="2.4" /><circle cx="8.5" cy="9.5" r="1.8" /><path d="M21 16l-5-5L5 20" />
               </svg>
             </span>
-            <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>Tap to attach a sign photo</span>
-            <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>JPG, PNG or WEBP · any Qatar road sign</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>{t('overview.tapToAttach')}</span>
+            <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>{t('overview.fileFormats')}</span>
           </button>
         </div>
       )}
@@ -202,10 +206,10 @@ export const Overview = ({
       {country && mode === "name" && (
         <div style={{ marginTop: 28, width: "100%", maxWidth: 560 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 12 }}>
-            EXAMPLES
+            {t('overview.examplesHeader').toUpperCase()}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {(m.examples ?? []).map((ex, i) => (
+            {(examples ?? []).map((ex: string, i: number) => (
               <button
                 key={i}
                 onClick={() => onSuggest?.(ex)}

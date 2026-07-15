@@ -1,13 +1,15 @@
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
+import { useLanguage } from '@/context/LanguageContext'
 
 export function ThemeToggle() {
   const { isDarkMode, toggleTheme } = useTheme();
+  const { t } = useLanguage()
   return (
     <button
       onClick={toggleTheme}
-      aria-label="Toggle theme"
-      title="Toggle theme"
+      aria-label={t('ui.toggleTheme')}
+      title={t('ui.toggleTheme')}
       style={{
         width: 36, height: 36, borderRadius: 9,
         display: "flex", alignItems: "center", justifyContent: "center",
