@@ -640,13 +640,24 @@ export function Chat() {
         if (messageText.trim()) form.append("question", messageText);
 
         let streamText = "";
+        let resolvedSignImages: SignImage[] = [];
 
         for await (const event of streamSSEForm(
           `/chats/${chatId}/identify-sign`,
           form,
           token
         )) {
-          if (event.type === "token") {
+          if (event.type === "sign_image") {
+            resolvedSignImages = await resolveImages([event.sign_image as SignImage]);
+            setMessages((prev) => {
+              const idx = streamingIdxRef.current;
+              if (idx < 0 || idx >= prev.length) return prev;
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], images: resolvedSignImages };
+              return updated;
+            });
+
+          } else if (event.type === "token") {
             streamText += (event.content as string) ?? "";
             streamingAdded = true;
             setMessages((prev) => {
@@ -661,9 +672,9 @@ export function Chat() {
             if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
             const finalElapsed = elapsedRef.current;
 
-            const resolvedImages = await resolveImages(
-              (event.sign_images as SignImage[]) ?? []
-            );
+            const currentImages = resolvedSignImages.length
+              ? resolvedSignImages
+              : await resolveImages((event.sign_images as SignImage[]) ?? []);
 
             const v1: ResponseVersion = {
               version_num: 1,
@@ -695,7 +706,7 @@ export function Chat() {
               is_streaming: false,
               versions: [v1],
               activeVersionIdx: 0,
-              images: resolvedImages,
+              images: currentImages,
             };
 
             flushSync(() => {
@@ -738,37 +749,116 @@ export function Chat() {
         }
 
       } else if (mode === "name") {
-        // ── Name the sign → find-sign (BGE-M3 catalog search, no LLM) ──────
-        const payload = await apiClient.post(`/chats/${chatId}/find-sign`, { question: messageText, country: country ?? "qatar" }, token);
-        const assistantData = payload.data as ChatMessageModel & { generation_time_seconds?: number };
-        assistantData.images = await resolveImages(assistantData.images);
+        // ── Name the sign → find-sign, streamed (combined name+description
+        // search + local-LLM decision + local-LLM grounded explanation) ────
+        let streamText = "";
+        let resolvedSignImages: SignImage[] = [];
 
-        const v1: ResponseVersion = {
-          version_num: 1,
-          message: assistantData.message,
-          token_data: assistantData.token_data ?? [],
-          total_reliability: assistantData.total_reliability,
-          total_entropy: assistantData.total_entropy,
-          total_collision_entropy: assistantData.total_collision_entropy,
-          total_reliability_with_hidden_layers: assistantData.total_reliability_with_hidden_layers ?? 0,
-          total_glu: (assistantData as any).total_glu ?? 0,
-          total_logtoku: (assistantData as any).total_logtoku ?? 0,
-          generation_time_seconds: assistantData.generation_time_seconds ?? 0,
-        };
-        setMessages((prev) => {
-          const idx = streamingIdxRef.current;
-          if (idx >= 0 && idx < prev.length) {
-            const updated = [...prev];
-            updated[idx] = { ...assistantData, versions: [v1], activeVersionIdx: 0, is_streaming: false };
-            return updated;
+        for await (const event of streamSSE(
+          `/chats/${chatId}/find-sign`,
+          { question: messageText, country: country ?? "qatar", context: contextForApi },
+          token
+        )) {
+          if (event.type === "matches") {
+            resolvedSignImages = await resolveImages((event.sign_images as SignImage[]) ?? []);
+            setMessages((prev) => {
+              const idx = streamingIdxRef.current;
+              if (idx < 0 || idx >= prev.length) return prev;
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], images: resolvedSignImages };
+              return updated;
+            });
+
+          } else if (event.type === "token") {
+            streamText += (event.content as string) ?? "";
+            streamingAdded = true;
+            setMessages((prev) => {
+              const idx = streamingIdxRef.current;
+              if (idx < 0 || idx >= prev.length) return prev;
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], message: streamText };
+              return updated;
+            });
+
+          } else if (event.type === "done") {
+            if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+            const finalElapsed = elapsedRef.current;
+
+            const currentImages = resolvedSignImages.length
+              ? resolvedSignImages
+              : await resolveImages((event.sign_images as SignImage[]) ?? []);
+
+            const v1: ResponseVersion = {
+              version_num: 1,
+              message: (event.message as string) ?? streamText,
+              token_data: (event.token_data as TokenData[]) ?? [],
+              total_reliability: event.total_reliability as number | undefined,
+              total_entropy: event.total_entropy as number | undefined,
+              total_collision_entropy: event.total_collision_entropy as number | undefined,
+              total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers as number | undefined,
+              total_glu: (event.total_glu as number) ?? 0,
+              total_logtoku: (event.total_logtoku as number) ?? 0,
+              generation_time_seconds: (event.generation_time_seconds as number) ?? finalElapsed,
+            };
+
+            const doneMsg: ChatMessageModel & { generation_time_seconds?: number } = {
+              message: v1.message,
+              role: ChatMessageRoleType.ASSISTANT,
+              chat_id: (event.chat_id as string) ?? chatId,
+              generation_type: (event.generation_type as ChatMessageGenerationType) ?? ChatMessageGenerationType.TEXT,
+              message_id: event.message_id as string | undefined,
+              token_data: v1.token_data,
+              total_reliability: v1.total_reliability,
+              total_entropy: v1.total_entropy,
+              total_collision_entropy: v1.total_collision_entropy,
+              total_reliability_with_hidden_layers: v1.total_reliability_with_hidden_layers,
+              total_glu: v1.total_glu,
+              total_logtoku: v1.total_logtoku,
+              generation_time_seconds: v1.generation_time_seconds,
+              is_streaming: false,
+              versions: [v1],
+              activeVersionIdx: 0,
+              images: currentImages,
+            };
+
+            flushSync(() => {
+              setMessages((prev) => {
+                const idx = streamingIdxRef.current;
+                if (idx >= 0 && idx < prev.length) {
+                  const updated = [...prev];
+                  updated[idx] = doneMsg;
+                  return updated;
+                }
+                streamingAdded = true;
+                return [...prev, doneMsg];
+              });
+            });
+
+            pushToSidebar(doneMsg);
+            setIsLoading(false);
+            streamingIdxRef.current = -1;
+            if (isNewChat && country) {
+              apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { });
+            }
+            break;
+
+          } else if (event.type === "error") {
+            setMessages((prev) => {
+              const idx = streamingIdxRef.current;
+              if (idx < 0 || idx >= prev.length) return prev;
+              const updated = [...prev];
+              updated[idx] = {
+                ...updated[idx],
+                message: "Sorry, there was an error. Please try again.",
+                is_streaming: false,
+              };
+              return updated;
+            });
+            setIsLoading(false);
+            streamingIdxRef.current = -1;
+            throw new Error((event.content as string) ?? "Sign search failed");
           }
-          return [...prev, { ...assistantData, versions: [v1], activeVersionIdx: 0 }];
-        });
-        pushToSidebar(assistantData);
-        if (isNewChat && country) {
-          apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { })
         }
-
       } else if (capturedImage) {
         // ── Ask + image → non-streaming (streaming doesn't return sign images yet) ─
         const formData = new FormData();
@@ -920,25 +1010,6 @@ export function Chat() {
             pushToSidebar(doneMsg);
             setIsLoading(false);
             streamingIdxRef.current = -1;
-
-            // Fire-and-forget follow-up suggestion (non-blocking, fails silently)
-            if (doneMsg.message_id) {
-              apiClient.post(
-                `/follow-up-questions`,
-                { question: messageText, country: country ?? "qatar", message_id: doneMsg.message_id },
-                token
-              ).then(data => {
-                const qs: string[] = data?.data?.questions ?? []
-                if (qs.length > 0) {
-                  setMessages(prev => prev.map(m =>
-                    m.message_id === doneMsg.message_id
-                      ? { ...m, follow_up_questions: qs }
-                      : m
-                  ))
-                }
-              }).catch(() => {})
-            }
-
             if (isNewChat && country) {
               apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { })
             }
