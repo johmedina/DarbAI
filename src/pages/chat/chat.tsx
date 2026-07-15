@@ -644,13 +644,24 @@ export function Chat() {
         if (messageText.trim()) form.append("question", messageText);
 
         let streamText = "";
+        let resolvedSignImages: SignImage[] = [];
 
         for await (const event of streamSSEForm(
           `/chats/${chatId}/identify-sign`,
           form,
           token
         )) {
-          if (event.type === "token") {
+          if (event.type === "sign_image") {
+            resolvedSignImages = await resolveImages([event.sign_image as SignImage]);
+            setMessages((prev) => {
+              const idx = streamingIdxRef.current;
+              if (idx < 0 || idx >= prev.length) return prev;
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], images: resolvedSignImages };
+              return updated;
+            });
+
+          } else if (event.type === "token") {
             streamText += (event.content as string) ?? "";
             streamingAdded = true;
             setMessages((prev) => {
@@ -665,9 +676,9 @@ export function Chat() {
             if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
             const finalElapsed = elapsedRef.current;
 
-            const resolvedImages = await resolveImages(
-              (event.sign_images as SignImage[]) ?? []
-            );
+            const currentImages = resolvedSignImages.length
+              ? resolvedSignImages
+              : await resolveImages((event.sign_images as SignImage[]) ?? []);
 
             const v1: ResponseVersion = {
               version_num: 1,
@@ -695,11 +706,11 @@ export function Chat() {
               total_reliability_with_hidden_layers: v1.total_reliability_with_hidden_layers,
               total_glu: v1.total_glu,
               total_logtoku: v1.total_logtoku,
-              generation_time_seconds: v1.generation_time_seconds,
+              generation_time_seconds: v1.generation_time_seconds ?? undefined,
               is_streaming: false,
               versions: [v1],
               activeVersionIdx: 0,
-              images: resolvedImages,
+              images: currentImages,
             };
 
             flushSync(() => {
@@ -746,25 +757,23 @@ export function Chat() {
         }
 
       } else if (mode === "name") {
-        // ── Name the sign → find-sign (BGE-M3 catalog search, streamed like
-        // identify-sign: a "matches" event with the sign crop(s) arrives
-        // first, then the explanation streams token-by-token) ─────────────
+        // ── Name the sign → find-sign, streamed (combined name+description
+        // search + local-LLM decision + local-LLM grounded explanation) ────
         let streamText = "";
-        let resolvedImages: SignImage[] = [];
+        let resolvedSignImages: SignImage[] = [];
 
         for await (const event of streamSSE(
           `/chats/${chatId}/find-sign`,
-          { question: messageText, country: country ?? "qatar" },
+          { question: messageText, country: country ?? "qatar", context: contextForApi },
           token
         )) {
           if (event.type === "matches") {
-            resolvedImages = await resolveImages((event.sign_images as SignImage[]) ?? []);
-            streamingAdded = true;
+            resolvedSignImages = await resolveImages((event.sign_images as SignImage[]) ?? []);
             setMessages((prev) => {
               const idx = streamingIdxRef.current;
               if (idx < 0 || idx >= prev.length) return prev;
               const updated = [...prev];
-              updated[idx] = { ...updated[idx], images: resolvedImages };
+              updated[idx] = { ...updated[idx], images: resolvedSignImages };
               return updated;
             });
 
@@ -783,9 +792,9 @@ export function Chat() {
             if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
             const finalElapsed = elapsedRef.current;
 
-            if (!resolvedImages.length && (event.sign_images as SignImage[])?.length) {
-              resolvedImages = await resolveImages((event.sign_images as SignImage[]) ?? []);
-            }
+            const currentImages = resolvedSignImages.length
+              ? resolvedSignImages
+              : await resolveImages((event.sign_images as SignImage[]) ?? []);
 
             const v1: ResponseVersion = {
               version_num: 1,
@@ -813,11 +822,11 @@ export function Chat() {
               total_reliability_with_hidden_layers: v1.total_reliability_with_hidden_layers,
               total_glu: v1.total_glu,
               total_logtoku: v1.total_logtoku,
-              generation_time_seconds: v1.generation_time_seconds,
+              generation_time_seconds: v1.generation_time_seconds ?? undefined,
               is_streaming: false,
               versions: [v1],
               activeVersionIdx: 0,
-              images: resolvedImages,
+              images: currentImages,
             };
 
             flushSync(() => {
@@ -839,10 +848,6 @@ export function Chat() {
             if (isNewChat && country) {
               apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { });
             }
-            if (isNewChat) {
-              apiClient.patch(`/chats/${chatId}/mode`, { mode }, token).catch((err) => console.error("mode patch failed:", err));
-            }
-
             break;
 
           } else if (event.type === "error") {
@@ -862,7 +867,6 @@ export function Chat() {
             throw new Error((event.content as string) ?? "Sign search failed");
           }
         }
-
       } else if (capturedImage) {
         // ── Ask + image → non-streaming (streaming doesn't return sign images yet) ─
         const formData = new FormData();
@@ -973,7 +977,7 @@ export function Chat() {
               total_reliability_with_hidden_layers: v1.total_reliability_with_hidden_layers,
               total_glu: v1.total_glu,
               total_logtoku: v1.total_logtoku,
-              generation_time_seconds: v1.generation_time_seconds,
+              generation_time_seconds: v1.generation_time_seconds ?? undefined,
               rag_sources: (event.rag_sources as any[]) ?? [],
               is_streaming: false,
               versions: [v1],
@@ -1027,25 +1031,6 @@ export function Chat() {
             pushToSidebar(doneMsg);
             setIsLoading(false);
             streamingIdxRef.current = -1;
-
-            // Fire-and-forget follow-up suggestion (non-blocking, fails silently)
-            if (doneMsg.message_id) {
-              apiClient.post(
-                `/follow-up-questions`,
-                { question: messageText, country: country ?? "qatar", message_id: doneMsg.message_id },
-                token
-              ).then(data => {
-                const qs: string[] = data?.data?.questions ?? []
-                if (qs.length > 0) {
-                  setMessages(prev => prev.map(m =>
-                    m.message_id === doneMsg.message_id
-                      ? { ...m, follow_up_questions: qs }
-                      : m
-                  ))
-                }
-              }).catch(() => {})
-            }
-
             if (isNewChat && country) {
               apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { })
             }
@@ -1302,8 +1287,8 @@ export function Chat() {
               !country
                 ? "Select a country above to start chatting..."
                 : mode === "ask"
-                ? `Ask about driving in ${activeCountry?.name ?? "your country"}…`
-                : MODES[mode].placeholder
+                  ? `Ask about driving in ${activeCountry?.name ?? "your country"}…`
+                  : MODES[mode].placeholder
             }
             emphasizeAttach={mode === "read"}
             allowImage={mode === "read"}
