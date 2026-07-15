@@ -1,5 +1,6 @@
 import { FC, ReactNode } from 'react';
 import { Modal as BootstrapModal } from 'react-bootstrap'
+import { useLanguage } from '@/context/LanguageContext';
 
 interface Props {
   children: ReactNode
@@ -11,6 +12,7 @@ interface Props {
 }
 
 const Modal: FC<Props> = ({ children, show, handleClose, dialogClassName, title, modalBodyClassName }) => {
+  const { t } = useLanguage();
   return (
     <BootstrapModal
       show={show}
@@ -27,7 +29,7 @@ const Modal: FC<Props> = ({ children, show, handleClose, dialogClassName, title,
             type="button"
             className="btn-close"
             onClick={handleClose}
-            aria-label="Close"
+            aria-label={t.common.close}
           />
         </BootstrapModal.Header>
       )}

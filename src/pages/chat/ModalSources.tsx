@@ -3,29 +3,31 @@ import { BookOpen, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { RagSource } from '../../interfaces/interfaces'
 import { API_BASE } from '@/lib/apiClient'
 import { useAuth } from '@/context/AuthContext'
+import { useLanguage } from '@/context/LanguageContext'
 
 interface SourcePage {
-  part:      string
-  page_num:  number
-  title:     string
+  part: string
+  page_num: number
+  title: string
   image_url: string
 }
 
 interface Props {
-  chatId:    string
+  chatId: string
   messageId: string
-  sources:   RagSource[]
-  show:      boolean
+  sources: RagSource[]
+  show: boolean
   handleClose: () => void
 }
 
 const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose }) => {
   const { token } = useAuth()
-  const [pages,   setPages]   = useState<SourcePage[]>([])
+  const { t } = useLanguage()
+  const [pages, setPages] = useState<SourcePage[]>([])
   const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [pageIdx, setPageIdx] = useState(0)
-  
+
 
   useEffect(() => {
     if (!show || !token) return
@@ -57,7 +59,7 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
   if (!show) return null
 
   const current = pages[pageIdx]
-  const total   = pages.length
+  const total = pages.length
 
   // Collect all unique page numbers for the summary chips
   // Preserve retrieval-score order (sources already sorted score DESC by backend)
@@ -80,7 +82,7 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
       {/* Drawer */}
       <aside style={{
         position: "absolute", top: 0, bottom: 0, right: 0,
-        borderLeft: "1px solid var(--line)",
+        borderInlineStart: "1px solid var(--line)",
         width: "min(700px, 96vw)",
         background: "var(--surface)",
         boxShadow: "var(--shadow-lg)",
@@ -115,19 +117,19 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
                   fontSize: 16, fontWeight: 650,
                   letterSpacing: "-.02em", margin: 0, color: "var(--ink)",
                 }}>
-                  Source Pages
+                  {t.modal.source_pages}
                 </h2>
                 <p style={{
                   fontSize: 12.5, color: "var(--ink-2)",
                   marginTop: 2, marginBottom: 0,
                 }}>
-                  Pages from the Qatar driving guide used to answer this question
+                  {t.modal.pages_from_guide}
                 </p>
               </div>
             </div>
             <button
               onClick={handleClose}
-              aria-label="Close"
+              aria-label={t.common.close}
               style={{
                 color: "var(--ink-2)", padding: 6, borderRadius: 8, marginTop: -2,
                 background: "transparent", border: "none", cursor: "pointer",
@@ -171,20 +173,20 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
             }}>
               <Loader2 size={28} style={{ animation: "spin 1s linear infinite" }} />
               <p style={{ fontSize: 13.5, margin: 0 }}>
-                Extracting pages from the driving guide…
+                {t.modal.extracting_pages}
               </p>
             </div>
           )}
 
           {!loading && error && (
             <p style={{ color: "var(--caution)", fontSize: 13.5 }}>
-              Could not load source pages: {error}
+              {t.modal.could_not_load_source_pages} {error}
             </p>
           )}
 
           {!loading && !error && pages.length === 0 && (
             <p style={{ color: "var(--ink-3)", fontSize: 13.5 }}>
-              No source pages found for this response.
+              {t.modal.no_source_pages}
             </p>
           )}
 
@@ -207,7 +209,7 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
                       opacity: pageIdx === 0 ? 0.4 : 1,
                     }}
                   >
-                    <ChevronLeft size={15} /> Prev
+                    <ChevronLeft size={15} /> {t.modal.prev} {/* TODO-RTL: Review icon direction for RTL */}
                   </button>
 
                   <span style={{
@@ -228,7 +230,7 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
                       opacity: pageIdx === total - 1 ? 0.4 : 1,
                     }}
                   >
-                    Next <ChevronRight size={15} />
+                    {t.modal.next} <ChevronRight size={15} /> {/* TODO-RTL: Review icon direction for RTL */}
                   </button>
                 </div>
               )}
@@ -251,7 +253,7 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
               }}>
                 <img
                   src={current.image_url}
-                  alt={`Page ${current.page_num}`}
+                  alt={`${t.modal.page} ${current.page_num}`}
                   style={{ width: "100%", display: "block" }}
                 />
                 {/* Page number badge at bottom */}
@@ -273,7 +275,7 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
                   s.pages.includes(current.page_num) && s.part === current.part
                 )
                 return matchingSrc ? (
-                  <div 
+                  <div
                   // style={{
                   //   marginTop: 16, padding: "13px 15px",
                   //   borderRadius: 12, background: "var(--surface-2)",

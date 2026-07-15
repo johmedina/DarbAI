@@ -2,6 +2,7 @@ import { FC } from 'react';
 import { ShieldCheck, X, Info } from 'lucide-react';
 import { ChatMessageModel } from '../../interfaces/interfaces';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface Props {
   chatMessageResponse: ChatMessageModel
@@ -25,14 +26,14 @@ type TokenStat = {
 // Coletoku (reliability_with_hidden_layers): lower = more uncertain
 const COLETOKU_THRESHOLD = -0.088;
 // LogTokU  (logtoku per-token):               lower = more uncertain
-const LOGTOKU_THRESHOLD    = -0.293;
+const LOGTOKU_THRESHOLD = -0.293;
 // GLU:                                        lower (more negative) = more uncertain
-const GLU_THRESHOLD        = -0.120;
+const GLU_THRESHOLD = -0.120;
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 const belowIsRed = (v: number, threshold: number): "red" | "green" | "black" => {
   if (v < threshold) return "red";
-  if (v === 0)       return "green";
+  if (v === 0) return "green";
   return "black";
 };
 
@@ -209,24 +210,26 @@ function TokenViz({
 
 // ── Main component ────────────────────────────────────────────────────────────
 const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
+  const { t } = useLanguage();
+
   if (!show) return null;
 
-  const tokenData      = (chatMessageResponse as any)?.token_data as TokenStat[] | undefined;
+  const tokenData = (chatMessageResponse as any)?.token_data as TokenStat[] | undefined;
   const totalColetoku = (chatMessageResponse as any)?.total_reliability_with_hidden_layers as number | undefined;
-  const totalLogtoku   = (chatMessageResponse as any)?.total_logtoku as number | undefined;
-  const totalGLU       = (chatMessageResponse as any)?.total_glu    as number | undefined;
+  const totalLogtoku = (chatMessageResponse as any)?.total_logtoku as number | undefined;
+  const totalGLU = (chatMessageResponse as any)?.total_glu as number | undefined;
 
 
-  const reliable   = isReliable(totalGLU);
+  const reliable = isReliable(totalGLU);
   const hasColetoku = typeof totalColetoku === "number" && Number.isFinite(totalColetoku);
-  const hasGLU     = typeof totalGLU === "number" && Number.isFinite(totalGLU);
+  const hasGLU = typeof totalGLU === "number" && Number.isFinite(totalGLU);
   // Confidence ring: normalise GLU into [0,1] for display
   const confidence = hasGLU
     ? Math.max(0, Math.min(1, 1 + totalGLU! / Math.abs(GLU_THRESHOLD * 2)))
     : 0;
 
   const color = reliable ? "var(--reliable)" : "var(--caution)";
-  const bg    = reliable ? "var(--reliable-bg)" : "var(--caution-bg)";
+  const bg = reliable ? "var(--reliable-bg)" : "var(--caution-bg)";
   const linec = reliable ? "var(--reliable-line)" : "var(--caution-line)";
 
   return (
@@ -272,16 +275,16 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
               </div>
               <div>
                 <h2 style={{ fontSize: 16, fontWeight: 650, letterSpacing: "-.02em", margin: 0, color: "var(--ink)" }}>
-                  Uncertainty Quantification
+                  {t.uq.title}
                 </h2>
                 <p style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 2, marginBottom: 0 }}>
-                  How sure Salama is about this answer
+                  {t.uq.subtitle}
                 </p>
               </div>
             </div>
             <button
               onClick={handleClose}
-              aria-label="Close"
+              aria-label={t.common.close}
               style={{
                 color: "var(--ink-2)", padding: 6, borderRadius: 8, marginTop: -2,
                 background: "transparent", border: "none", cursor: "pointer",
@@ -319,12 +322,10 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
                 fontSize: 11, fontWeight: 700, letterSpacing: ".05em",
                 textTransform: "uppercase", color, marginBottom: 4,
               }}>
-                {reliable ? "Reliable" : "Use caution"}
+                {reliable ? t.uq.reliable : t.message.use_caution}
               </div>
               <div style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.5, maxWidth: 420 }}>
-                {reliable
-                  ? "The model is confident the answer is grounded in the source documents."
-                  : "Some parts of this answer may not be fully grounded. Verify with official sources before acting."}
+                {reliable ? t.uq.reliable_desc : t.uq.caution_desc}
               </div>
             </div>
           </div>
@@ -373,16 +374,16 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
                   fontSize: 12.5, fontWeight: 700, letterSpacing: ".02em",
                   textTransform: "uppercase", color: "var(--ink-2)", margin: 0,
                 }}>
-                  Token-level analysis
+                  {t.uq.token_level_analysis}
                 </h3>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 10, fontSize: 11.5, color: "var(--ink-2)" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <i style={{ width: 9, height: 9, borderRadius: 3, background: "var(--caution)", display: "inline-block" }} />
-                    Flagged
+                    {t.uq.flagged}
                   </span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <i style={{ width: 9, height: 9, borderRadius: 3, background: "var(--ink-3)", display: "inline-block" }} />
-                    Confident
+                    {t.uq.confident}
                   </span>
                 </span>
               </div>
@@ -427,7 +428,7 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
             </>
           )}
 
-          
+
 
           {/* Footer */}
           <p style={{
@@ -435,11 +436,11 @@ const ModalUQ: FC<Props> = ({ chatMessageResponse, show, handleClose }) => {
             lineHeight: 1.6, display: "flex", gap: 7, marginBottom: 0,
           }}>
             <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-            Highlighted words are where the model was least certain. Salama always shows this so you can judge an answer before acting on it on the road.
+            {t.uq.footer_info}
           </p>
         </div>
-      </aside>
-    </div>
+      </aside >
+    </div >
   );
 };
 

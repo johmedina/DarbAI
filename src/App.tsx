@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 import { ProtectedRoute } from "@/components/custom/ProtectedRoute";
 import { Chat } from "@/pages/chat/chat";
 import { LoginPage } from "@/pages/auth/LoginPage";
@@ -22,21 +23,23 @@ function ProtectedLayout() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login"  element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
+      <LanguageProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignupPage />} />
 
-            <Route element={<ProtectedLayout />}>
-              <Route path="/"             element={<Chat />} />
-              <Route path="/chat/:chatId" element={<Chat />} />
-            </Route>
+              <Route element={<ProtectedLayout />}>
+                <Route path="/" element={<Chat />} />
+                <Route path="/chat/:chatId" element={<Chat />} />
+              </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

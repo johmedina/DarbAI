@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { MessageSquare, Image as ImageIcon, Search, ChevronDown, Check } from "lucide-react";
+import { useLanguage } from '@/context/LanguageContext';
 
 export type ChatMode = "ask" | "read" | "name";
 
 export const MODE_ORDER: ChatMode[] = ["ask", "read", "name"];
 
 export const MODES: Record<ChatMode, {
-  Icon: React.ComponentType<{ size?: number }>;
+  Icon: React.ComponentType<any>;
   label: string;
   sub: string;
   welcomeTitle: string;
@@ -52,7 +53,36 @@ interface ModeSwitchProps {
 
 export function ModeSwitch({ mode, onMode }: ModeSwitchProps) {
   const [open, setOpen] = useState(false);
-  const { Icon, label } = MODES[mode];
+  const { t } = useLanguage();
+  const MODES_LOCAL = {
+    ask: {
+      Icon: MessageSquare,
+      label: t.mode.ask.label,
+      sub: t.mode.ask.sub,
+      welcomeTitle: t.mode.ask.welcomeTitle,
+      welcomeSub: t.mode.ask.welcomeSub,
+      placeholder: t.mode.ask.placeholder,
+    },
+    read: {
+      Icon: ImageIcon,
+      label: t.mode.read.label,
+      sub: t.mode.read.sub,
+      welcomeTitle: t.mode.read.welcomeTitle,
+      welcomeSub: t.mode.read.welcomeSub,
+      placeholder: t.mode.read.placeholder,
+    },
+    name: {
+      Icon: Search,
+      label: t.mode.name.label,
+      sub: t.mode.name.sub,
+      welcomeTitle: t.mode.name.welcomeTitle,
+      welcomeSub: t.mode.name.welcomeSub,
+      placeholder: t.mode.name.placeholder,
+      examples: t.mode.name.examples,
+    },
+  } as const;
+
+  const { Icon, label } = MODES_LOCAL[mode];
 
   return (
     <div style={{ position: "relative" }}>
