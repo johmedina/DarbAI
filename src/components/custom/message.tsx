@@ -69,6 +69,7 @@ export const PreviewMessage = ({
   }, [displayText])
 
   // UQ data comes from the active version when available
+  const displayImages       = activeVer?.images                            ?? message.images
   const displayTokenData    = activeVer?.token_data                        ?? message.token_data
   const displayGenTime      = activeVer?.generation_time_seconds           ?? message.generation_time_seconds
   const displayTotalRel     = activeVer?.total_reliability                 ?? message.total_reliability
@@ -159,9 +160,9 @@ export const PreviewMessage = ({
 
           <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
             {/* Sign images */}
-            {message.images && message.images.length > 0 && (
+            {displayImages && displayImages.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
-                {message.images.map((img) => (
+                {displayImages.map((img) => (
                   <div key={img.sign_id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                     <LazyImage
                       src={img.resolvedUrl}

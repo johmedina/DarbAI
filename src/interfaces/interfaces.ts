@@ -148,6 +148,7 @@ export interface ChatModel {
     generation_time_seconds?: number | null
     rag_sources?: RagSource[]
     feedback?: Feedback | null
+    images?: SignImage[]
     
 }
 
