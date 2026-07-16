@@ -14,7 +14,7 @@ import { MessageActions } from "@/components/custom/actions"
 import { LazyImage } from "@/components/custom/lazy-image"
 import { ModalUQ } from "@/pages/chat/ModalUQ"
 import { ModalSources } from '@/pages/chat/ModalSources'
-import { languageLabel } from "@/lib/translation"
+import { languageLabel } from "@/lib/response-translation"
 import { useAuth } from "@/context/AuthContext"
 import { useLanguage } from "@/context/LanguageContext";
 

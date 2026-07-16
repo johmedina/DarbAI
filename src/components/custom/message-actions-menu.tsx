@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight, Languages, Loader2, Search, HelpCircle } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useAuth } from "@/context/AuthContext"
-import { buildTargetLanguages, detectLanguage, languageLabel, translateText } from "@/lib/translation"
+import { buildTargetLanguages, detectLanguage, languageLabel, translateText } from "@/lib/response-translation"
 import { useLanguage } from '@/context/LanguageContext'
 
 interface MessageActionsMenuProps {
