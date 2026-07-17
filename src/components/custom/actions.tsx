@@ -74,6 +74,15 @@ export function MessageActions({
     setTimeout(() => setCopied(false), 2000)
   }
 
+  // Greeting-only replies (e.g. "Hi", "Hello") are answered instantly by the
+  // backend without running generation/UQ — it marks them with total_reliability
+  // === 1 and an empty token_data array. Regenerate + the reliability chip don't
+  // make sense for these, so we detect and hide them here; every other icon
+  // (copy, feedback, translate, etc.) stays exactly as-is.
+  const isGreetingResponse =
+    (!message.token_data || message.token_data.length === 0) &&
+    message.total_reliability === 1
+
   const totalReliability = message.total_glu;
   const genTime: number | null | undefined = (message as any).generation_time_seconds != null
     ? Number((message as any).generation_time_seconds)
@@ -213,8 +222,8 @@ export function MessageActions({
         />
       )}
 
-      {/* Regenerate */}
-      {onRegenerate && (
+      {/* Regenerate — hidden for greeting-only replies */}
+      {onRegenerate && !isGreetingResponse && (
         <OverlayTrigger placement="top" overlay={<Tooltip>{t.common.regenerate}</Tooltip>}>
           <button
             style={iconBtn}
@@ -287,8 +296,8 @@ export function MessageActions({
         />
       )}
 
-      {/* Reliability chip */}
-      {hasUQ && !isRegenerating && (
+      {/* Reliability chip — hidden for greeting-only replies */}
+      {hasUQ && !isRegenerating && !isGreetingResponse && (
         <button
           onClick={() => setShowUQModal(true)}
           style={{
