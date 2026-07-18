@@ -1094,6 +1094,9 @@ export function Chat() {
             if (isNewChat && country) {
               apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { });
             }
+            if (isNewChat) {
+              apiClient.patch(`/chats/${chatId}/mode`, { mode }, token).catch(() => { });
+            }
             break;
 
           } else if (event.type === "error") {
