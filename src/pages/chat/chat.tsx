@@ -25,6 +25,9 @@ import { useLanguage } from "@/context/LanguageContext";
 import { apiClient, API_BASE, streamSSE, streamSSEForm } from "@/lib/apiClient";
 import { toAuthenticatedBlobUrl } from "@/lib/imageCache";
 import { toast } from "sonner";
+// Generation state (messages/isLoading/streamingIdx/etc.) is kept here,
+// keyed by chatId, instead of local useState — see chatRuntimeStore.ts for why.
+import { getChatRuntime, setChatRuntime, clearChatRuntime, useChatRuntime, DRAFT_CHAT_KEY } from "@/lib/chatRuntimeStore";
 
 // ── Countries ──────────────────────────────────────────────────────────────────
 const COUNTRIES = [
@@ -148,47 +151,84 @@ export function Chat() {
   useEffect(() => { localStorage.setItem("salama-mode", mode); }, [mode]);
 
   // Current conversation
-  const [messages, setMessages] = useState<ChatMessageModel[]>([]);
+  // NOTE: messages/isLoading/streamingIdx/elapsedSeconds/regeneratingIdx/country
+  // used to be useState/useRef here. That made them effectively global, since
+  // this component stays mounted across "/" <-> "/chat/:chatId" navigation —
+  // whichever chat was on screen ended up sharing one bucket of generation
+  // state with every other chat. They now live in the per-chatId runtime
+  // store (chatRuntimeStore.ts) and are only *read* here via useChatRuntime.
   const [question, setQuestion] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [image, setImage] = useState<File | null>(null);
   // Image attachment is only supported in "read" mode — drop any attached
   // image when switching away so it can't silently ride along with a
   // message submitted in another mode.
   useEffect(() => { if (mode !== "read") setImage(null); }, [mode]);
-  // Which assistant message index is currently being regenerated (-1 = none)
-  const [regeneratingIdx, setRegeneratingIdx] = useState(-1)
-
-  // Country — resets on every new chat, persists for the life of one chat
-  const [country, setCountry] = useState<string | null>(null)
 
   const loadedChatIdRef = useRef<string | null>(null);
-  const streamingIdxRef = useRef<number>(-1);
-  const submittingRef = useRef(false);
-
-  // Timer
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const elapsedRef = useRef(0);
-
-  useEffect(() => { elapsedRef.current = elapsedSeconds }, [elapsedSeconds]);
 
   const selectedChatId = urlChatId ?? null;
+  // Which store slot this render should read/write. A chat that hasn't been
+  // created yet (no id in the URL) shares the single "draft" slot; the first
+  // submit mints a real chatId and hands off from draft -> chatId (see
+  // handleSubmit) so it's never possible for two different chats to read the
+  // same slot at once.
+  const runtimeKey = selectedChatId ?? DRAFT_CHAT_KEY;
+  const runtime = useChatRuntime(runtimeKey);
+  const {
+    messages,
+    isLoading,
+    elapsedSeconds,
+    regeneratingIdx,
+    country,
+  } = runtime;
+
+  // Convenience setters that always target *this render's* chat slot. Only
+  // safe to use for UI-driven updates (e.g. the country dropdown, version
+  // switcher) where "the chat currently on screen" is unambiguously correct.
+  // Streaming callbacks below deliberately do NOT use these — they close
+  // over the chatId captured when the request started instead, so they keep
+  // targeting the right chat even if the user navigates away mid-stream.
+  const setMessages = useCallback(
+    (updater: ChatMessageModel[] | ((prev: ChatMessageModel[]) => ChatMessageModel[])) => {
+      setChatRuntime(runtimeKey, (prev) => ({
+        messages: typeof updater === "function" ? updater(prev.messages) : updater,
+      }));
+    },
+    [runtimeKey]
+  );
+  const setCountry = useCallback(
+    (code: string | null) => setChatRuntime(runtimeKey, { country: code }),
+    [runtimeKey]
+  );
+
+  // Timer — mirrors elapsedSeconds into a ref so the interval callback (set
+  // up once per generating chatId) always reads the freshest value without
+  // needing to be in its own dependency array.
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const elapsedRef = useRef(0);
+  useEffect(() => { elapsedRef.current = elapsedSeconds }, [elapsedSeconds]);
 
   // ── Timer lifecycle ───────────────────────────────────────────────────────
-  useEffect(() => {
-    if (isLoading) {
-      setElapsedSeconds(0);
-      elapsedRef.current = 0;
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = setInterval(() => {
-        setElapsedSeconds((s) => +(s + 0.1).toFixed(1));
-      }, 100)
-    } else {
-      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isLoading]);
+  // (moved) Previously this was a useEffect keyed on the page-level
+  // `isLoading`, which is exactly the kind of "global" state that caused the
+  // original leak — switching to another chat re-ran this effect against
+  // whatever chat now happened to be mounted. The timer is now started and
+  // stopped directly around the streaming calls in handleSubmit/
+  // handleRegenerate, scoped to the chatId that request was made for. See
+  // `startTimer`/`stopTimer` below.
+  const startTimer = useCallback((chatId: string) => {
+    setChatRuntime(chatId, { elapsedSeconds: 0 });
+    elapsedRef.current = 0;
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      elapsedRef.current = +(elapsedRef.current + 0.1).toFixed(1);
+      setChatRuntime(chatId, { elapsedSeconds: elapsedRef.current });
+    }, 100);
+  }, []);
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  }, []);
+  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
   // ── Load history ──────────────────────────────────────────────────────────
   const loadHistory = useCallback(async () => {
@@ -209,14 +249,23 @@ export function Chat() {
   // ── Load chat on URL change ───────────────────────────────────────────────
   useEffect(() => {
     if (!urlChatId || !token) {
-      setMessages([]);
       loadedChatIdRef.current = null;
       return;
     }
     if (loadedChatIdRef.current === urlChatId) return;
 
+    // This chat is currently streaming (we navigated away and came back) —
+    // its store slot already has the live messages/placeholder/timer, so
+    // don't touch it. Refetching here would blow away the in-progress
+    // response and reset isLoading, which is exactly the leak this store
+    // exists to prevent.
+    if (getChatRuntime(urlChatId).isLoading) {
+      loadedChatIdRef.current = urlChatId;
+      return;
+    }
+
     // Reset country when switching to a different existing chat
-    setCountry(null);
+    setChatRuntime(urlChatId, { country: null });
 
     (async () => {
       try {
@@ -225,8 +274,10 @@ export function Chat() {
           const session = data.data as ChatSession;
           // Render immediately with text — images resolve themselves lazily
           // (LazyImage), so opening a chat never blocks on image fetches.
-          setMessages(sessionToMessages(session));
-          setCountry((data.data as any).country ?? null);
+          setChatRuntime(urlChatId, {
+            messages: sessionToMessages(session),
+            country: (data.data as any).country ?? null,
+          });
           // Resync mode to this chat's stored mode so the selector never shows
           // a previous chat's mode. Old chats saved before mode tracking
           // existed fall back to "ask".
@@ -234,7 +285,7 @@ export function Chat() {
           loadedChatIdRef.current = urlChatId;
         }
       } catch {
-        setMessages([]);
+        setChatRuntime(urlChatId, { messages: [] });
         loadedChatIdRef.current = null;
         navigate("/", { replace: true });
       }
@@ -304,10 +355,14 @@ export function Chat() {
   // ── Sidebar handlers ──────────────────────────────────────────────────────
   function handleNewChat() {
     loadedChatIdRef.current = null;
-    setMessages([]);
+    // Reset only the draft slot. Do NOT touch the chat being left — it may
+    // still be generating a response in the background, and this used to
+    // call setMessages([])/setCountry(null) against whatever chat happened
+    // to be mounted, which (now that state is chat-scoped) would have wiped
+    // that chat's real messages instead of just clearing the screen.
+    clearChatRuntime(DRAFT_CHAT_KEY);
     setQuestion("");
     setImage(null);
-    setCountry(null);
     // setSidebarOpen(false);
     navigate("/");
   }
@@ -331,9 +386,9 @@ export function Chat() {
     if (!token) return;
     await apiClient.delete(`/chats/${chatId}`, token);
     setChatSessions((prev) => prev.filter((c) => c.chat_id !== chatId));
+    clearChatRuntime(chatId);
     if (selectedChatId === chatId) {
       loadedChatIdRef.current = null;
-      setMessages([]);
       navigate("/");
     }
   }
@@ -378,18 +433,23 @@ export function Chat() {
   // response and attaches them to that message once ready. Non-blocking and
   // fails silently, matching the backend endpoint's own contract — the
   // message has already finished rendering by the time this resolves.
-  function fetchFollowUpQuestions(question: string, messageId: string | undefined) {
+  // Takes an explicit chatId (rather than using the render-scoped
+  // setMessages) because this can resolve well after the user has navigated
+  // to a different chat — it must keep targeting the chat the question was
+  // actually asked in.
+  function fetchFollowUpQuestions(chatId: string, question: string, messageId: string | undefined) {
     if (!token || !messageId) return
     apiClient.post("/follow-up-questions", { question, country: country ?? "qatar", message_id: messageId }, token)
       .then((res) => {
         const questions: string[] = res?.data?.questions ?? []
         if (!questions.length) return
-        setMessages((prev) => {
+        setChatRuntime(chatId, (prevRuntime) => {
+          const prev = prevRuntime.messages
           const idx = prev.findIndex((m) => m.message_id === messageId)
-          if (idx === -1) return prev
+          if (idx === -1) return {}
           const updated = [...prev]
           updated[idx] = { ...updated[idx], follow_up_questions: questions }
-          return updated
+          return { messages: updated }
         })
       })
       .catch(() => { })
@@ -419,8 +479,6 @@ export function Chat() {
   // Regenerate must therefore replay that same mode's flow/endpoint, not
   // always the "Ask Salama" one.
   async function handleRegenerate(msgIdx: number) {
-    if (isLoading || regeneratingIdx !== -1 || !token) return
-
     const assistantMsg = messages[msgIdx]
     if (!assistantMsg || assistantMsg.role !== ChatMessageRoleType.ASSISTANT) return
 
@@ -431,6 +489,10 @@ export function Chat() {
 
     const chatId = selectedChatId ?? assistantMsg.chat_id
     const messageId = assistantMsg.message_id
+
+    // Guard against double-firing for *this* chat specifically — regenerating
+    // in one chat must not block sending/regenerating in another.
+    if (getChatRuntime(chatId).isLoading || getChatRuntime(chatId).regeneratingIdx !== -1 || !token) return
 
     const userMsgIdx = messages.slice(0, msgIdx).map((m) => m.role).lastIndexOf(ChatMessageRoleType.USER)
     const contextForApi = messages
@@ -443,8 +505,13 @@ export function Chat() {
     // Shared version bookkeeping — every mode below appends its result as a
     // new version of this same message row, so the version switcher/UI
     // behaves identically regardless of which flow produced it.
+    // These all write via setChatRuntime(chatId, ...) rather than the
+    // render-scoped setMessages — chatId is captured above once and reused
+    // for every callback here, so this regenerate keeps updating the right
+    // chat even if the user navigates elsewhere before it finishes.
     const applyStreamingText = (text: string) => {
-      setMessages((prev) => {
+      setChatRuntime(chatId, (prevRuntime) => {
+        const prev = prevRuntime.messages
         const updated = [...prev]
         const msg = updated[msgIdx]
         const existingVersions = msg.versions ?? []
@@ -469,15 +536,15 @@ export function Chat() {
           activeVersionIdx: newVersions.length - 1,
           message: text,
         }
-        return updated
+        return { messages: updated }
       })
     }
 
     const applyImages = (imgs: SignImage[]) => {
-      setMessages((prev) => {
-        const updated = [...prev]
+      setChatRuntime(chatId, (prevRuntime) => {
+        const updated = [...prevRuntime.messages]
         updated[msgIdx] = { ...updated[msgIdx], images: imgs }
-        return updated
+        return { messages: updated }
       })
     }
 
@@ -485,8 +552,8 @@ export function Chat() {
       version: Omit<ResponseVersion, "version_num"> & { version_num?: number },
       extra: Partial<ChatMessageModel> = {}
     ) => {
-      setMessages((prev) => {
-        const updated = [...prev]
+      setChatRuntime(chatId, (prevRuntime) => {
+        const updated = [...prevRuntime.messages]
         const msg = updated[msgIdx]
         const cleanVersions = (msg.versions ?? []).filter((v) => !(v as any)._streaming)
         const newVersion: ResponseVersion = {
@@ -511,14 +578,13 @@ export function Chat() {
           total_logtoku: newVersion.total_logtoku ?? 0,
           rag_sources: (newVersion as any).rag_sources ?? [],
         }
-        return updated
+        return { messages: updated, regeneratingIdx: -1 }
       })
-      setRegeneratingIdx(-1)
     }
 
     const revertOnFailure = () => {
-      setMessages((prev) => {
-        const updated = [...prev]
+      setChatRuntime(chatId, (prevRuntime) => {
+        const updated = [...prevRuntime.messages]
         const msg = updated[msgIdx]
         const cleanVersions = (msg.versions ?? []).filter((v) => !(v as any)._streaming)
         const prevIdx = cleanVersions.length - 1
@@ -529,24 +595,23 @@ export function Chat() {
           activeVersionIdx: prevIdx,
           message: prevVer?.message ?? msg.message,
         }
-        return updated
+        return { messages: updated, regeneratingIdx: -1 }
       })
-      setRegeneratingIdx(-1)
     }
 
-    setRegeneratingIdx(msgIdx)
+    setChatRuntime(chatId, { regeneratingIdx: msgIdx })
 
     try {
       if (mode === "read") {
   if (!messageId) {
     console.warn("No message_id on assistant message — cannot regenerate via versioned endpoint")
-    setRegeneratingIdx(-1)
+    setChatRuntime(chatId, { regeneratingIdx: -1 })
     return
   }
   const imageBlob = await getOriginalSignImageBlob(userMsg, token)
   if (!imageBlob) {
     toast.error("Original sign photo is unavailable — can't regenerate.")
-    setRegeneratingIdx(-1)
+    setChatRuntime(chatId, { regeneratingIdx: -1 })
     return
   }
 
@@ -589,7 +654,7 @@ export function Chat() {
 } else if (mode === "name") {
   if (!messageId) {
     console.warn("No message_id on assistant message — cannot regenerate via versioned endpoint")
-    setRegeneratingIdx(-1)
+    setChatRuntime(chatId, { regeneratingIdx: -1 })
     return
   }
   let streamText = ""
@@ -632,7 +697,7 @@ export function Chat() {
         // ── Ask Salama → existing versioned regenerate endpoint (unchanged) ──
         if (!messageId) {
           console.warn("No message_id on assistant message — cannot regenerate via versioned endpoint")
-          setRegeneratingIdx(-1)
+          setChatRuntime(chatId, { regeneratingIdx: -1 })
           return
         }
 
@@ -663,7 +728,7 @@ export function Chat() {
         while (true) {
           const { done, value } = await reader.read()
           if (done) {
-            setRegeneratingIdx(-1)
+            setChatRuntime(chatId, { regeneratingIdx: -1 })
             break
           }
 
@@ -694,7 +759,7 @@ export function Chat() {
                 generation_time_seconds: event.generation_time_seconds,
                 rag_sources: event.rag_sources ?? [],
               })
-              fetchFollowUpQuestions(userMsg.message, messageId)
+              fetchFollowUpQuestions(chatId, userMsg.message, messageId)
               streamingText = ""
 
             } else if (event.type === "error") {
@@ -712,8 +777,13 @@ export function Chat() {
 
   // ── Send message ──────────────────────────────────────────────────────────
   async function handleSubmit(text?: string) {
-    if (isLoading || !token || submittingRef.current) return;
-
+    const chatId = selectedChatId ?? uuidv4();
+    const isNewChat = !selectedChatId;
+    // A not-yet-created chat doesn't have its own store slot yet, so guard
+    // against double-submits using the shared draft slot instead; an
+    // existing chat guards against its own slot only — never the whole app.
+    const guardKey = isNewChat ? DRAFT_CHAT_KEY : chatId;
+    if (getChatRuntime(guardKey).isLoading || getChatRuntime(guardKey).submitting || !token) return;
 
     const messageText = text ?? question;
 
@@ -725,17 +795,21 @@ export function Chat() {
       if (!messageText.trim() && !image) return;
     }
 
-    submittingRef.current = true;
-    setIsLoading(true);
-    streamingIdxRef.current = -1;
+    setChatRuntime(guardKey, { submitting: true });
 
-    const chatId = selectedChatId ?? uuidv4();
-    const isNewChat = !selectedChatId;
-
-    if (!selectedChatId) {
+    if (isNewChat) {
+      // Hand off from the shared draft slot to this chat's own slot (carry
+      // the country picked on the empty screen forward) before navigating,
+      // so the draft is immediately free for whatever "New Chat" opens next
+      // and this chat's generation state can never be confused with it.
+      setChatRuntime(chatId, { country });
+      clearChatRuntime(DRAFT_CHAT_KEY);
       loadedChatIdRef.current = chatId;
       navigate(`/chat/${chatId}`, { replace: true });
     }
+
+    startTimer(chatId);
+    setChatRuntime(chatId, { isLoading: true, submitting: true, streamingIdx: -1 });
 
     const localImageObjectUrl = image ? URL.createObjectURL(image) : undefined;
     const userMessage: ChatMessageModel = {
@@ -758,8 +832,10 @@ export function Chat() {
       activeVersionIdx: 0,
     };
 
-    streamingIdxRef.current = messages.length + 1;
-    setMessages((prev) => [...prev, userMessage, placeholder]);
+    setChatRuntime(chatId, (prev) => ({
+      messages: [...prev.messages, userMessage, placeholder],
+      streamingIdx: messages.length + 1,
+    }));
 
     setQuestion("");
     const capturedImage = image;
@@ -814,23 +890,25 @@ export function Chat() {
         )) {
           if (event.type === "sign_image") {
             resolvedSignImages = await resolveImages([event.sign_image as SignImage]);
-            setMessages((prev) => {
-              const idx = streamingIdxRef.current;
-              if (idx < 0 || idx >= prev.length) return prev;
+            setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+              const idx = prevRuntime.streamingIdx;
+              if (idx < 0 || idx >= prev.length) return {};
               const updated = [...prev];
               updated[idx] = { ...updated[idx], images: resolvedSignImages };
-              return updated;
+              return { messages: updated };
             });
 
           } else if (event.type === "token") {
             streamText += (event.content as string) ?? "";
             streamingAdded = true;
-            setMessages((prev) => {
-              const idx = streamingIdxRef.current;
-              if (idx < 0 || idx >= prev.length) return prev;
+            setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+              const idx = prevRuntime.streamingIdx;
+              if (idx < 0 || idx >= prev.length) return {};
               const updated = [...prev];
               updated[idx] = { ...updated[idx], message: streamText };
-              return updated;
+              return { messages: updated };
             });
 
           } else if (event.type === "done") {
@@ -876,21 +954,22 @@ export function Chat() {
             };
 
             flushSync(() => {
-              setMessages((prev) => {
-                const idx = streamingIdxRef.current;
+              setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+                const idx = prevRuntime.streamingIdx;
                 if (idx >= 0 && idx < prev.length) {
                   const updated = [...prev];
                   updated[idx] = doneMsg;
-                  return updated;
+                  return { messages: updated };
                 }
                 streamingAdded = true;
-                return [...prev, doneMsg];
+                return { messages: [...prev, doneMsg] };
               });
             });
 
             pushToSidebar(doneMsg);
-            setIsLoading(false);
-            streamingIdxRef.current = -1;
+            stopTimer();
+            setChatRuntime(chatId, { isLoading: false, submitting: false, streamingIdx: -1 });
             if (isNewChat && country) {
               apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { });
             }
@@ -901,19 +980,20 @@ export function Chat() {
             break;
 
           } else if (event.type === "error") {
-            setMessages((prev) => {
-              const idx = streamingIdxRef.current;
-              if (idx < 0 || idx >= prev.length) return prev;
+            setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+              const idx = prevRuntime.streamingIdx;
+              if (idx < 0 || idx >= prev.length) return {};
               const updated = [...prev];
               updated[idx] = {
                 ...updated[idx],
                 message: "Sorry, there was an error. Please try again.",
                 is_streaming: false,
               };
-              return updated;
+              return { messages: updated };
             });
-            setIsLoading(false);
-            streamingIdxRef.current = -1;
+            stopTimer();
+            setChatRuntime(chatId, { isLoading: false, submitting: false, streamingIdx: -1 });
             throw new Error((event.content as string) ?? "Sign identification failed");
           }
         }
@@ -931,23 +1011,25 @@ export function Chat() {
         )) {
           if (event.type === "matches") {
             resolvedSignImages = await resolveImages((event.sign_images as SignImage[]) ?? []);
-            setMessages((prev) => {
-              const idx = streamingIdxRef.current;
-              if (idx < 0 || idx >= prev.length) return prev;
+            setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+              const idx = prevRuntime.streamingIdx;
+              if (idx < 0 || idx >= prev.length) return {};
               const updated = [...prev];
               updated[idx] = { ...updated[idx], images: resolvedSignImages };
-              return updated;
+              return { messages: updated };
             });
 
           } else if (event.type === "token") {
             streamText += (event.content as string) ?? "";
             streamingAdded = true;
-            setMessages((prev) => {
-              const idx = streamingIdxRef.current;
-              if (idx < 0 || idx >= prev.length) return prev;
+            setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+              const idx = prevRuntime.streamingIdx;
+              if (idx < 0 || idx >= prev.length) return {};
               const updated = [...prev];
               updated[idx] = { ...updated[idx], message: streamText };
-              return updated;
+              return { messages: updated };
             });
 
           } else if (event.type === "done") {
@@ -993,40 +1075,42 @@ export function Chat() {
             };
 
             flushSync(() => {
-              setMessages((prev) => {
-                const idx = streamingIdxRef.current;
+              setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+                const idx = prevRuntime.streamingIdx;
                 if (idx >= 0 && idx < prev.length) {
                   const updated = [...prev];
                   updated[idx] = doneMsg;
-                  return updated;
+                  return { messages: updated };
                 }
                 streamingAdded = true;
-                return [...prev, doneMsg];
+                return { messages: [...prev, doneMsg] };
               });
             });
 
             pushToSidebar(doneMsg);
-            setIsLoading(false);
-            streamingIdxRef.current = -1;
+            stopTimer();
+            setChatRuntime(chatId, { isLoading: false, submitting: false, streamingIdx: -1 });
             if (isNewChat && country) {
               apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { });
             }
             break;
 
           } else if (event.type === "error") {
-            setMessages((prev) => {
-              const idx = streamingIdxRef.current;
-              if (idx < 0 || idx >= prev.length) return prev;
+            setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+              const idx = prevRuntime.streamingIdx;
+              if (idx < 0 || idx >= prev.length) return {};
               const updated = [...prev];
               updated[idx] = {
                 ...updated[idx],
                 message: "Sorry, there was an error. Please try again.",
                 is_streaming: false,
               };
-              return updated;
+              return { messages: updated };
             });
-            setIsLoading(false);
-            streamingIdxRef.current = -1;
+            stopTimer();
+            setChatRuntime(chatId, { isLoading: false, submitting: false, streamingIdx: -1 });
             throw new Error((event.content as string) ?? "Sign search failed");
           }
         }
@@ -1056,14 +1140,15 @@ export function Chat() {
           total_logtoku: (assistantData as any).total_logtoku ?? 0,
           generation_time_seconds: assistantData.generation_time_seconds ?? 0,
         };
-        setMessages((prev) => {
-          const idx = streamingIdxRef.current;
+        setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+          const idx = prevRuntime.streamingIdx;
           if (idx >= 0 && idx < prev.length) {
             const updated = [...prev];
             updated[idx] = { ...assistantData, versions: [v1], activeVersionIdx: 0, is_streaming: false };
-            return updated;
+            return { messages: updated };
           }
-          return [...prev, { ...assistantData, versions: [v1], activeVersionIdx: 0 }];
+          return { messages: [...prev, { ...assistantData, versions: [v1], activeVersionIdx: 0 }] };
         });
         pushToSidebar(assistantData);
         if (isNewChat && country) {
@@ -1091,20 +1176,22 @@ export function Chat() {
               seenFirst = true;
               streamingAdded = true;
               // First token: update the placeholder in-place via streamingIdxRef
-              setMessages((prev) => {
-                const idx = streamingIdxRef.current;
-                if (idx < 0 || idx >= prev.length) return prev;
+              setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+                const idx = prevRuntime.streamingIdx;
+                if (idx < 0 || idx >= prev.length) return {};
                 const updated = [...prev];
                 updated[idx] = { ...updated[idx], message: streamText };
-                return updated;
+                return { messages: updated };
               });
             } else {
-              setMessages((prev) => {
-                const idx = streamingIdxRef.current;
-                if (idx < 0 || idx >= prev.length) return prev;
+              setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+                const idx = prevRuntime.streamingIdx;
+                if (idx < 0 || idx >= prev.length) return {};
                 const updated = [...prev];
                 updated[idx] = { ...updated[idx], message: streamText };
-                return updated;
+                return { messages: updated };
               });
             }
 
@@ -1149,12 +1236,13 @@ export function Chat() {
             };
 
             flushSync(() => {
-              setMessages((prev) => {
-                const idx = streamingIdxRef.current;
+              setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+                const idx = prevRuntime.streamingIdx;
                 if (idx >= 0 && idx < prev.length && (prev[idx] as any).is_streaming) {
                   const updated = [...prev];
                   updated[idx] = doneMsg;
-                  return updated;
+                  return { messages: updated };
                 }
                 // streamingIdxRef was stale (e.g. a fast response raced a
                 // concurrent messages update) — find the live placeholder by
@@ -1163,12 +1251,11 @@ export function Chat() {
                 if (placeholderIdx !== -1) {
                   const updated = [...prev];
                   updated[placeholderIdx] = doneMsg;
-                  return updated;
+                  return { messages: updated };
                 }
                 // Genuine edge case: done fired before any placeholder existed.
                 streamingAdded = true;
-                setIsLoading(false);
-                return [...prev, doneMsg];
+                return { messages: [...prev, doneMsg], isLoading: false, submitting: false };
               });
             });
 
@@ -1192,9 +1279,9 @@ export function Chat() {
             });
 
             pushToSidebar(doneMsg);
-            setIsLoading(false);
-            streamingIdxRef.current = -1;
-            fetchFollowUpQuestions(messageText, doneMsg.message_id);
+            stopTimer();
+            setChatRuntime(chatId, { isLoading: false, submitting: false, streamingIdx: -1 });
+            fetchFollowUpQuestions(chatId, messageText, doneMsg.message_id);
             if (isNewChat && country) {
               apiClient.patch(`/chats/${chatId}/country`, { country }, token).catch(() => { })
             }
@@ -1204,19 +1291,20 @@ export function Chat() {
             break;
 
           } else if (event.type === "error") {
-            setMessages((prev) => {
-              const idx = streamingIdxRef.current;
-              if (idx < 0 || idx >= prev.length) return prev;
+            setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+              const idx = prevRuntime.streamingIdx;
+              if (idx < 0 || idx >= prev.length) return {};
               const updated = [...prev];
               updated[idx] = {
                 ...updated[idx],
                 message: "Sorry, there was an error. Please try again.",
                 is_streaming: false,
               };
-              return updated;
+              return { messages: updated };
             });
-            setIsLoading(false);
-            streamingIdxRef.current = -1;
+            stopTimer();
+            setChatRuntime(chatId, { isLoading: false, submitting: false, streamingIdx: -1 });
             throw new Error((event.content as string) ?? "Generation failed");
           }
         }
@@ -1225,8 +1313,9 @@ export function Chat() {
     } catch (err) {
       console.error("Stream/API error:", err);
 
-      setMessages((prev) => {
-        const idx = streamingIdxRef.current;
+      setChatRuntime(chatId, (prevRuntime) => {
+              const prev = prevRuntime.messages;
+        const idx = prevRuntime.streamingIdx;
 
         // If we have a streaming placeholder in-place, overwrite it
         if (idx >= 0 && idx < prev.length) {
@@ -1236,25 +1325,26 @@ export function Chat() {
             message: "Sorry, there was an error processing your request. Please try again.",
             is_streaming: false,
           };
-          return updated;
+          return { messages: updated };
         }
 
         // Otherwise remove any partially-added streaming message and append error
         const base = streamingAdded ? prev.slice(0, -1) : prev;
-        return [
-          ...base,
-          {
-            message: "Sorry, there was an error processing your request. Please try again.",
-            role: ChatMessageRoleType.ASSISTANT,
-            chat_id: chatId ?? urlChatId ?? "",
-            generation_type: ChatMessageGenerationType.TEXT,
-          } as ChatMessageModel,
-        ];
+        return {
+          messages: [
+            ...base,
+            {
+              message: "Sorry, there was an error processing your request. Please try again.",
+              role: ChatMessageRoleType.ASSISTANT,
+              chat_id: chatId ?? urlChatId ?? "",
+              generation_type: ChatMessageGenerationType.TEXT,
+            } as ChatMessageModel,
+          ],
+        };
       });
     } finally {
-      setIsLoading(false);
-      streamingIdxRef.current = -1;
-      submittingRef.current = false;
+      stopTimer();
+      setChatRuntime(chatId, { isLoading: false, submitting: false, streamingIdx: -1 });
     }
   }
 
