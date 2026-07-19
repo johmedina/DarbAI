@@ -68,6 +68,12 @@
     --chart-5: 27 87% 67%;
   }
 
+  img.brand-logo {
+    /* logo now swaps between logo.png / logo-white.png in JS based on
+       theme, so no CSS filter is needed here anymore */
+  }
+  
+
   .dark {
     /* ── Salama design tokens (dark) ───────────────────── */
     --bg: #121110;

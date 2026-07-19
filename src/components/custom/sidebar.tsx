@@ -5,6 +5,8 @@ import { PlusIcon, MessageSquareIcon, ChevronLeftIcon, Trash2Icon, PencilIcon, C
 import { SignImage } from "../../interfaces/interfaces";
 import { useAuth } from "@/context/AuthContext";
 import logo from "@/assets/images/logo.png";
+import logoWhite from "@/assets/images/logo-white.png";
+import { useTheme } from "@/context/ThemeContext";
 // import { ChatMode, MODES, MODE_ORDER } from "./mode-switch";
 import { ChatMode, MODE_ORDER, getModes } from "./mode-switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -387,6 +389,7 @@ export function Sidebar({
   const emailDomain = user?.email ? user.email.split("@")[1] ?? user.email : "";
 
   const { t, dir } = useLanguage();
+  const { isDarkMode } = useTheme();
   const MODES = getModes(t);
 
   return (
@@ -436,7 +439,7 @@ export function Sidebar({
 
           {/* Header */}
           <div style={{ padding: "16px 16px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-            <img src={logo} alt="Salama" style={{ height: 22, width: "auto" }} />
+            <img src={isDarkMode ? logoWhite : logo} alt="Salama" className="brand-logo" style={{ height: 22, width: "auto" }} />
             <button
               onClick={onClose}
               aria-label="Collapse sidebar"

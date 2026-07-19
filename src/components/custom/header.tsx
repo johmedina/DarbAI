@@ -1,5 +1,7 @@
 import logo from "@/assets/images/logo.png";
+import logoWhite from "@/assets/images/logo-white.png";
 import { useLanguage } from '@/context/LanguageContext';
+import { useTheme } from '@/context/ThemeContext';
 
 export const Header = () => (
   <div className="flex items-center h-full">
@@ -9,7 +11,9 @@ export const Header = () => (
 
 function HeaderLogo() {
   const { t } = useLanguage();
-  return <img src={logo} alt={t.header.brand} style={{ height: 26, width: "auto" }} />;
+  const { isDarkMode } = useTheme();
+  return <img src={isDarkMode ? logoWhite : logo} alt={t.header.brand} className="brand-logo" style={{ height: 26, width: "auto" }} />;
+ 
 }
 
 export function LanguageToggle() {

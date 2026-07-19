@@ -2,7 +2,9 @@
 import { useRef } from "react";
 import { CreditCard, Wind, AlertTriangle, Car, Search, Globe, HelpCircle } from "lucide-react";
 import logo from "@/assets/images/logo.png";
+import logoWhite from "@/assets/images/logo-white.png";
 import { useLanguage } from '@/context/LanguageContext'
+import { useTheme } from '@/context/ThemeContext'
 // import { ChatMode, MODES } from "./mode-switch";
 import { ChatMode, getModes } from "./mode-switch";
 
@@ -55,6 +57,7 @@ export const Overview = ({
 }: OverviewProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const { t } = useLanguage();        // <-- moved up, must come before getModes(t)
+  const { isDarkMode } = useTheme();  // <-- new
   const MODES = getModes(t);          // <-- new
   const m = MODES[mode];              // <-- now safe, uses local MODES
 
@@ -73,7 +76,7 @@ export const Overview = ({
         textAlign: "center",
       }}
     >
-      <img src={logo} alt={t.header.brand} style={{ height: mode === "ask" ? 52 : 40, width: "auto" }} />
+      <img src={isDarkMode ? logoWhite : logo} alt={t.header.brand} className="brand-logo" style={{ height: mode === "ask" ? 52 : 40, width: "auto" }} />
       <div className="road-line" style={{ width: 116, margin: mode === "ask" ? "20px 0 22px" : "18px 0 20px" }} />
       <h1 style={{ fontSize: 24, fontWeight: 650, letterSpacing: "-.025em", color: "var(--ink)" }}>
         {m.welcomeTitle}
