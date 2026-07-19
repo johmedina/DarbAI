@@ -436,7 +436,7 @@ export function Sidebar({
 
           {/* Header */}
           <div style={{ padding: "16px 16px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-            <img src={logo} alt="Salama" style={{ height: 22, width: "auto" }} />
+            <img src={logo} alt="Salama" className="brand-logo" style={{ height: 22, width: "auto" }} />
             <button
               onClick={onClose}
               aria-label="Collapse sidebar"

@@ -73,7 +73,7 @@ export const Overview = ({
         textAlign: "center",
       }}
     >
-      <img src={logo} alt={t.header.brand} style={{ height: mode === "ask" ? 52 : 40, width: "auto" }} />
+      <img src={logo} alt={t.header.brand} className="brand-logo" style={{ height: mode === "ask" ? 52 : 40, width: "auto" }} />
       <div className="road-line" style={{ width: 116, margin: mode === "ask" ? "20px 0 22px" : "18px 0 20px" }} />
       <h1 style={{ fontSize: 24, fontWeight: 650, letterSpacing: "-.025em", color: "var(--ink)" }}>
         {m.welcomeTitle}

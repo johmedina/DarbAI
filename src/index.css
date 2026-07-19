@@ -68,6 +68,16 @@
     --chart-5: 27 87% 67%;
   }
 
+  img.brand-logo {
+    filter: none;
+    transition: filter .15s ease;
+  }
+  .dark img.brand-logo {
+    /* logo artwork is solid black — invert to white so it stays
+       visible against the dark theme's near-black backgrounds */
+    filter: brightness(0) invert(1);
+  }
+
   .dark {
     /* ── Salama design tokens (dark) ───────────────────── */
     --bg: #121110;

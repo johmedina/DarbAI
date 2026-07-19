@@ -9,7 +9,7 @@ export const Header = () => (
 
 function HeaderLogo() {
   const { t } = useLanguage();
-  return <img src={logo} alt={t.header.brand} style={{ height: 26, width: "auto" }} />;
+  return <img src={logo} alt={t.header.brand} className="brand-logo" style={{ height: 26, width: "auto" }} />;
 }
 
 export function LanguageToggle() {

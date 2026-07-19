@@ -3,7 +3,7 @@ import { useState, FormEvent, InputHTMLAttributes } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2, Moon, Sun } from "lucide-react";
-import logo from "@/assets/images/logo.png";
+import logo from "@/assets/images/logo-white.png";
 import { useTheme } from "@/context/ThemeContext";
 import { hashPassword } from "@/lib/apiClient";
 import { useLanguage } from "@/context/LanguageContext";
@@ -59,7 +59,7 @@ export function LoginPage() {
           padding: "48px 52px", position: "relative", overflow: "hidden",
         }}
       >
-        <img src={logo} alt={t.header.brand} style={{ height: 34, width: "auto", filter: "brightness(0) invert(1)" }} />
+        <img src={logo} alt={t.header.brand} style={{ height: 54, width: "auto", alignSelf: "flex-start", flexShrink: 0 }} />
         <div style={{ maxWidth: 460 }}>
           <h1 style={{ fontSize: 40, lineHeight: 1.12, fontWeight: 650, letterSpacing: "-.03em" }}>
             {t.auth.drive_qatar}
