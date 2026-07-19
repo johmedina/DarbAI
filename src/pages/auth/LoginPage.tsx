@@ -59,7 +59,7 @@ export function LoginPage() {
           padding: "48px 52px", position: "relative", overflow: "hidden",
         }}
       >
-        <img src={logo} alt={t.header.brand} style={{ height: 54, width: "auto", alignSelf: "flex-start", flexShrink: 0 }} />
+        <img src={logo} alt={t.header.brand} style={{ height: 140, width: "auto", alignSelf: "flex-start", flexShrink: 0 }} />
         <div style={{ maxWidth: 460 }}>
           <h1 style={{ fontSize: 40, lineHeight: 1.12, fontWeight: 650, letterSpacing: "-.03em" }}>
             {t.auth.drive_qatar}

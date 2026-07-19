@@ -5,17 +5,20 @@
 
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import logo from "@/assets/images/logo.png";
+import logoWhite from "@/assets/images/logo-white.png";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
+  const { isDarkMode } = useTheme();
 
   if (isLoading) {
     // Show logo + spinner while token is being verified so the logo
     // never disappears on reload — same visual as the app header
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-6 bg-background">
-        <img src={logo} alt="Salama" className="brand-logo h-16 w-auto" />
+        <img src={isDarkMode ? logoWhite : logo} alt="Salama" className="brand-logo h-16 w-auto" />
         <div className="h-7 w-7 animate-spin rounded-full border-4 border-muted border-t-primary" />
       </div>
     );
