@@ -33,7 +33,8 @@ import { getChatRuntime, setChatRuntime, clearChatRuntime, useChatRuntime, DRAFT
 const COUNTRIES = [
   { code: "uae", name: "United Arab Emirates", flag: "🇦🇪" },
   { code: "qatar", name: "Qatar", flag: "🇶🇦" },
-]
+  { code: "oman", name: "Oman", flag: "🇴🇲" },
+];
 
 // ── Eager image window ───────────────────────────────────────────────────────
 // Only the images belonging to the most recent EAGER_IMAGE_COUNT image-bearing
@@ -603,95 +604,95 @@ export function Chat() {
 
     try {
       if (mode === "read") {
-  if (!messageId) {
-    console.warn("No message_id on assistant message — cannot regenerate via versioned endpoint")
-    setChatRuntime(chatId, { regeneratingIdx: -1 })
-    return
-  }
-  const imageBlob = await getOriginalSignImageBlob(userMsg, token)
-  if (!imageBlob) {
-    toast.error("Original sign photo is unavailable — can't regenerate.")
-    setChatRuntime(chatId, { regeneratingIdx: -1 })
-    return
-  }
+        if (!messageId) {
+          console.warn("No message_id on assistant message — cannot regenerate via versioned endpoint")
+          setChatRuntime(chatId, { regeneratingIdx: -1 })
+          return
+        }
+        const imageBlob = await getOriginalSignImageBlob(userMsg, token)
+        if (!imageBlob) {
+          toast.error("Original sign photo is unavailable — can't regenerate.")
+          setChatRuntime(chatId, { regeneratingIdx: -1 })
+          return
+        }
 
-  const form = new FormData()
-  form.append("image", imageBlob, "sign.jpg")
-  form.append("country", country ?? "qatar")
-  if (userMsg.message?.trim()) form.append("question", userMsg.message)
+        const form = new FormData()
+        form.append("image", imageBlob, "sign.jpg")
+        form.append("country", country ?? "qatar")
+        if (userMsg.message?.trim()) form.append("question", userMsg.message)
 
-  let streamText = ""
-  for await (const event of streamSSEForm(
-    `/chats/${chatId}/messages/${messageId}/regenerate-identify-sign/stream`,
-    form,
-    token
-  )) {
-    if (event.type === "token") {
-      streamText += (event.content as string) ?? ""
-      applyStreamingText(streamText)
+        let streamText = ""
+        for await (const event of streamSSEForm(
+          `/chats/${chatId}/messages/${messageId}/regenerate-identify-sign/stream`,
+          form,
+          token
+        )) {
+          if (event.type === "token") {
+            streamText += (event.content as string) ?? ""
+            applyStreamingText(streamText)
 
-    } else if (event.type === "done") {
-      const resolvedImages = await resolveImages((event.sign_images as SignImage[]) ?? [])
-      finalizeVersion({
-        version_num: event.version_num as number | undefined,
-        message: (event.message as string) ?? streamText,
-        token_data: (event.token_data as TokenData[]) ?? [],
-        total_reliability: event.total_reliability as number | undefined,
-        total_entropy: event.total_entropy as number | undefined,
-        total_collision_entropy: event.total_collision_entropy as number | undefined,
-        total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers as number | undefined,
-        total_glu: (event.total_glu as number) ?? 0,
-        total_logtoku: (event.total_logtoku as number) ?? 0,
-        generation_time_seconds: event.generation_time_seconds as number | undefined,
-        images: resolvedImages,
-      }, { images: resolvedImages })
+          } else if (event.type === "done") {
+            const resolvedImages = await resolveImages((event.sign_images as SignImage[]) ?? [])
+            finalizeVersion({
+              version_num: event.version_num as number | undefined,
+              message: (event.message as string) ?? streamText,
+              token_data: (event.token_data as TokenData[]) ?? [],
+              total_reliability: event.total_reliability as number | undefined,
+              total_entropy: event.total_entropy as number | undefined,
+              total_collision_entropy: event.total_collision_entropy as number | undefined,
+              total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers as number | undefined,
+              total_glu: (event.total_glu as number) ?? 0,
+              total_logtoku: (event.total_logtoku as number) ?? 0,
+              generation_time_seconds: event.generation_time_seconds as number | undefined,
+              images: resolvedImages,
+            }, { images: resolvedImages })
 
-    } else if (event.type === "error") {
-      throw new Error((event.content as string) ?? "Sign identification failed")
-    }
-  }
+          } else if (event.type === "error") {
+            throw new Error((event.content as string) ?? "Sign identification failed")
+          }
+        }
 
-} else if (mode === "name") {
-  if (!messageId) {
-    console.warn("No message_id on assistant message — cannot regenerate via versioned endpoint")
-    setChatRuntime(chatId, { regeneratingIdx: -1 })
-    return
-  }
-  let streamText = ""
-  let resolvedImages: SignImage[] = []
+      } else if (mode === "name") {
+        if (!messageId) {
+          console.warn("No message_id on assistant message — cannot regenerate via versioned endpoint")
+          setChatRuntime(chatId, { regeneratingIdx: -1 })
+          return
+        }
+        let streamText = ""
+        let resolvedImages: SignImage[] = []
 
-  for await (const event of streamSSE(
-    `/chats/${chatId}/messages/${messageId}/regenerate-find-sign/stream`,
-    { question: userMsg.message, country: country ?? "qatar" },
-    token
-  )) {
-    if (event.type === "matches") {
-      resolvedImages = await resolveImages((event.sign_images as SignImage[]) ?? [])
-      applyImages(resolvedImages)
+        for await (const event of streamSSE(
+          `/chats/${chatId}/messages/${messageId}/regenerate-find-sign/stream`,
+          { question: userMsg.message, country: country ?? "qatar" },
+          token
+        )) {
+          if (event.type === "matches") {
+            resolvedImages = await resolveImages((event.sign_images as SignImage[]) ?? [])
+            applyImages(resolvedImages)
 
-    } else if (event.type === "token") {
-      streamText += (event.content as string) ?? ""
-      applyStreamingText(streamText)
+          } else if (event.type === "token") {
+            streamText += (event.content as string) ?? ""
+            applyStreamingText(streamText)
 
-    } else if (event.type === "done") {
-      finalizeVersion({
-        version_num: event.version_num as number | undefined,
-        message: (event.message as string) ?? streamText,
-        token_data: (event.token_data as TokenData[]) ?? [],
-        total_reliability: event.total_reliability as number | undefined,
-        total_entropy: event.total_entropy as number | undefined,
-        total_collision_entropy: event.total_collision_entropy as number | undefined,
-        total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers as number | undefined,
-        total_glu: (event.total_glu as number) ?? 0,
-        total_logtoku: (event.total_logtoku as number) ?? 0,
-        generation_time_seconds: event.generation_time_seconds as number | undefined,
-        images: resolvedImages,
-      }, { images: resolvedImages })
+          } else if (event.type === "done") {
+            finalizeVersion({
+              version_num: event.version_num as number | undefined,
+              message: (event.message as string) ?? streamText,
+              token_data: (event.token_data as TokenData[]) ?? [],
+              total_reliability: event.total_reliability as number | undefined,
+              total_entropy: event.total_entropy as number | undefined,
+              total_collision_entropy: event.total_collision_entropy as number | undefined,
+              total_reliability_with_hidden_layers: event.total_reliability_with_hidden_layers as number | undefined,
+              total_glu: (event.total_glu as number) ?? 0,
+              total_logtoku: (event.total_logtoku as number) ?? 0,
+              generation_time_seconds: event.generation_time_seconds as number | undefined,
+              images: resolvedImages,
+            }, { images: resolvedImages })
 
-    } else if (event.type === "error") {
-      throw new Error((event.content as string) ?? "Sign search failed")
-    }
-  }
+          } else if (event.type === "error") {
+            throw new Error((event.content as string) ?? "Sign search failed")
+          }
+        }
 
       } else {
         // ── Ask Salama → existing versioned regenerate endpoint (unchanged) ──
@@ -955,7 +956,7 @@ export function Chat() {
 
             flushSync(() => {
               setChatRuntime(chatId, (prevRuntime) => {
-              const prev = prevRuntime.messages;
+                const prev = prevRuntime.messages;
                 const idx = prevRuntime.streamingIdx;
                 if (idx >= 0 && idx < prev.length) {
                   const updated = [...prev];
@@ -1076,7 +1077,7 @@ export function Chat() {
 
             flushSync(() => {
               setChatRuntime(chatId, (prevRuntime) => {
-              const prev = prevRuntime.messages;
+                const prev = prevRuntime.messages;
                 const idx = prevRuntime.streamingIdx;
                 if (idx >= 0 && idx < prev.length) {
                   const updated = [...prev];
@@ -1144,7 +1145,7 @@ export function Chat() {
           generation_time_seconds: assistantData.generation_time_seconds ?? 0,
         };
         setChatRuntime(chatId, (prevRuntime) => {
-              const prev = prevRuntime.messages;
+          const prev = prevRuntime.messages;
           const idx = prevRuntime.streamingIdx;
           if (idx >= 0 && idx < prev.length) {
             const updated = [...prev];
@@ -1180,7 +1181,7 @@ export function Chat() {
               streamingAdded = true;
               // First token: update the placeholder in-place via streamingIdxRef
               setChatRuntime(chatId, (prevRuntime) => {
-              const prev = prevRuntime.messages;
+                const prev = prevRuntime.messages;
                 const idx = prevRuntime.streamingIdx;
                 if (idx < 0 || idx >= prev.length) return {};
                 const updated = [...prev];
@@ -1189,7 +1190,7 @@ export function Chat() {
               });
             } else {
               setChatRuntime(chatId, (prevRuntime) => {
-              const prev = prevRuntime.messages;
+                const prev = prevRuntime.messages;
                 const idx = prevRuntime.streamingIdx;
                 if (idx < 0 || idx >= prev.length) return {};
                 const updated = [...prev];
@@ -1240,7 +1241,7 @@ export function Chat() {
 
             flushSync(() => {
               setChatRuntime(chatId, (prevRuntime) => {
-              const prev = prevRuntime.messages;
+                const prev = prevRuntime.messages;
                 const idx = prevRuntime.streamingIdx;
                 if (idx >= 0 && idx < prev.length && (prev[idx] as any).is_streaming) {
                   const updated = [...prev];
@@ -1317,7 +1318,7 @@ export function Chat() {
       console.error("Stream/API error:", err);
 
       setChatRuntime(chatId, (prevRuntime) => {
-              const prev = prevRuntime.messages;
+        const prev = prevRuntime.messages;
         const idx = prevRuntime.streamingIdx;
 
         // If we have a streaming placeholder in-place, overwrite it

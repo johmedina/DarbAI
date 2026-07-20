@@ -233,3 +233,32 @@ The source documents don't contain a lot of context for many of the traffic sign
 ## Arabic UI
 
 Added arabic UI by replacing all the hard-coded strings in the frontend with references to an array in `translations.ts` where they are stored instead. `translations.ts` also includes arabic translations of all the text. When the user switches language, the text is retrieved from the correct part of the array. This approach allows additional countries to be added later if needed.
+
+## Monday - 20/07
+
+- Found documents for other GCC countries
+
+    - Oman: Best document, structured and detailed, similar to Qatar
+    - Saudi Arabia: Scanned document, barely any traffic signs, but text is selectable
+    - Kuwait: Only a one-page document with traffic signs, nothing else useful
+    - Bahrain: Nothing useful found
+
+- Started with Oman's document
+
+- TODO so far:
+
+    1. Index Oman's document (almost done)
+    2. Parse tables in all documents
+    3. Upload Oman source pages to Azure
+    4. Test Salama with Oman
+    5. Index missing traffic signs in Qatar
+    6. Replace remaining hard-coded strings in front-end
+    7. Upload Oman traffic signs to Azure (later)
+    8. TTS/STT
+    9. Index Saudi Arabia document (maybe)
+
+- Finished indexing Oman's document
+
+- Created automatic script to parse all tables (only need to enter chunk_id, country, and column headers) and parsed all Oman's tables
+
+- Uploaded Oman source page images to Azure
