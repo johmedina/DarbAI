@@ -262,3 +262,37 @@ Added arabic UI by replacing all the hard-coded strings in the frontend with ref
 - Created automatic script to parse all tables (only need to enter chunk_id, country, and column headers) and parsed all Oman's tables
 
 - Uploaded Oman source page images to Azure
+
+- Indexed 8 missing signs for Qatar and Saima added them to Azure
+
+- Found many tables in the uae document that are images without selectable text
+
+    - These will have to get parsed in a different way:
+
+        1. screenshot
+        2. convert to markdown with gpt
+        3. insert in rag.chunks with the correct headings, page numbers, embeddings, etc. (need to generate unique chunk_id for each chunk)
+
+## Tuesday - 21/07
+
+- TODO so far:
+
+    1. Test Salama with Oman
+    2. Replace remaining hard-coded strings in front-end
+    3. Parse tables for Qatar and UAE
+    4. Index Saudi Arabia document (maybe)
+    5. TTS/STT
+    6. ~~Index missing traffic signs in Qatar~~
+    7. ~~Parse tables for Oman~~
+    8. ~~Upload Oman traffic signs to Azure (later)~~
+    9. ~~Index Oman's document (almost done)~~
+    10. ~~Upload Oman source pages to Azure~~
+
+- Finished some of the todo list and fixed some minor bugs
+
+- Started indexing Saudi's document
+
+    - Document is scanned and didn't have selectable text, needed to be converted to one with text
+    - It's a very old and disorganised document
+    - Headings on the contents pages don't match the actual document so I had to manually change each one
+    - All signs in page 125 were not picked up by the automatic extraction, no time to do it manually

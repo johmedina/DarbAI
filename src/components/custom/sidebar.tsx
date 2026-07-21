@@ -163,6 +163,8 @@ function DropdownMenu({ anchorRect, onRename, onDelete, onClose }: {
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
+  const { t } = useLanguage();
+
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
@@ -218,7 +220,7 @@ function DropdownMenu({ anchorRect, onRename, onDelete, onClose }: {
         onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; }}
         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
       >
-        <PencilIcon size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }} /> Rename
+        <PencilIcon size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }} /> {t.sidebar.rename}
       </button>
       <button
         onClick={e => { e.stopPropagation(); onClose(); onDelete(); }}
@@ -231,7 +233,7 @@ function DropdownMenu({ anchorRect, onRename, onDelete, onClose }: {
         onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; }}
         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
       >
-        <Trash2Icon size={14} style={{ flexShrink: 0 }} /> Delete
+        <Trash2Icon size={14} style={{ flexShrink: 0 }} /> {t.sidebar.delete}
       </button>
     </div>,
     document.body
@@ -477,7 +479,7 @@ export function Sidebar({
           {/* Modes */}
           <div style={{ padding: "0 12px 14px", flexShrink: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--ink-3)", padding: "2px 10px 8px" }}>
-              MODES
+              {t.sidebar.modes}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {MODE_ORDER.map(id => {

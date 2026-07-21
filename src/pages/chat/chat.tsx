@@ -30,11 +30,11 @@ import { toast } from "sonner";
 import { getChatRuntime, setChatRuntime, clearChatRuntime, useChatRuntime, DRAFT_CHAT_KEY } from "@/lib/chatRuntimeStore";
 
 // ── Countries ──────────────────────────────────────────────────────────────────
-const COUNTRIES = [
-  { code: "uae", name: "United Arab Emirates", flag: "🇦🇪" },
-  { code: "qatar", name: "Qatar", flag: "🇶🇦" },
-  { code: "oman", name: "Oman", flag: "🇴🇲" },
-];
+// const COUNTRIES = [
+//   { code: "uae", name: "United Arab Emirates", flag: "🇦🇪" },
+//   { code: "qatar", name: "Qatar", flag: "🇶🇦" },
+//   { code: "oman", name: "Oman", flag: "🇴🇲" },
+// ];
 
 // ── Eager image window ───────────────────────────────────────────────────────
 // Only the images belonging to the most recent EAGER_IMAGE_COUNT image-bearing
@@ -1351,7 +1351,13 @@ export function Chat() {
       setChatRuntime(chatId, { isLoading: false, submitting: false, streamingIdx: -1 });
     }
   }
-
+  const { t } = useLanguage();
+  const COUNTRIES = [
+    { code: "qatar", name: t.countries.qatar, flag: "🇶🇦" },
+    { code: "uae", name: t.countries.uae, flag: "🇦🇪" },
+    { code: "oman", name: t.countries.oman, flag: "🇴🇲" },
+    { code: "ksa", name: t.countries.ksa, flag: "🇸🇦" },
+  ];
   // ── Render ────────────────────────────────────────────────────────────────
   const empty = messages.length === 0 && !isLoading;
   const streamingPlaceholder = messages.find((m) => (m as any).is_streaming);
@@ -1362,7 +1368,6 @@ export function Chat() {
   // messages exist — see the `isNewChat && country` patch calls above).
   const countryLocked = !empty
 
-  const { t } = useLanguage();
 
   return (
     <div style={{ display: "flex", height: "100dvh", overflow: "hidden", background: "var(--bg)" }}>
@@ -1531,7 +1536,7 @@ export function Chat() {
               isLatestMessage={i === messages.length - 1}
             />
           ))}
-          {showThinking && <ThinkingMessage elapsedSeconds={elapsedSeconds} />}
+          {showThinking && <ThinkingMessage elapsedSeconds={elapsedSeconds} country={activeCountry?.name ?? undefined} />}
           <div ref={messagesEndRef} style={{ flexShrink: 0, minHeight: 24 }} />
         </div>
 

@@ -327,7 +327,7 @@ export const PreviewMessage = ({
   )
 }
 
-export const ThinkingMessage = ({ elapsedSeconds = 0 }: { elapsedSeconds?: number }) => {
+export const ThinkingMessage = ({ elapsedSeconds = 0, country = "qatar" }: { elapsedSeconds?: number, country?: string }) => {
   const { t } = useLanguage();
   return (
     <motion.div
@@ -349,7 +349,7 @@ export const ThinkingMessage = ({ elapsedSeconds = 0 }: { elapsedSeconds?: numbe
             fontSize: 14.5, color: "var(--ink-2)", marginBottom: 10,
             display: "flex", alignItems: "center", gap: 8,
           }}>
-            <span>{t.chat.placeholder_default}</span>
+            <span>{t.chat.placeholder_ask_in.replace('{country}', country)}</span>
             {elapsedSeconds > 0 && (
               <span style={{ fontSize: 12, color: "var(--ink-3)", fontVariantNumeric: "tabular-nums" }}>
                 ({elapsedSeconds.toFixed(1)}s)
