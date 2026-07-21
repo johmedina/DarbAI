@@ -2,6 +2,12 @@
 export const translations = {
 
     en: {
+        countries: {
+            qatar: "Qatar",
+            uae: "United Arab Emirates",
+            oman: "Oman",
+            ksa: "Saudi Arabia"
+        },
         common: {
             toggle_theme: "Toggle theme",
             send: "Send",
@@ -36,7 +42,10 @@ export const translations = {
             yesterday: "Yesterday",
             last_week: "Previous 7 Days",
             older: "Older",
-            new_chat: "New chat"
+            new_chat: "New chat",
+            rename: "Rename",
+            delete: "Delete",
+            modes: "Modes"
         },
         auth: {
             welcome_back: "Welcome back",
@@ -175,9 +184,16 @@ export const translations = {
             examples_label: "EXAMPLES",
             flagged: "Flagged",
         },
+
     },
 
     ar: {
+        countries: {
+            qatar: "قطر",
+            uae: "الإمارات العربية المتحدة",
+            oman: "سلطنة عُمان",
+            ksa: "المملكة العربية السعودية"
+        },
         common: {
             toggle_theme: "تبديل المظهر",
             send: "إرسال",
@@ -213,7 +229,10 @@ export const translations = {
             yesterday: "أمس",
             last_week: "الأسبوع الماضي",
             older: "قبل ذلك",
-            new_chat: "دردشة جديدة"
+            new_chat: "دردشة جديدة",
+            rename: "renamearabic",
+            delete: "deletearabin",
+            modes: "modesarabic"
         },
         auth: {
             welcome_back: "مرحبًا بعودتك",

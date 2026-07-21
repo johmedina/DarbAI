@@ -327,7 +327,8 @@ export const PreviewMessage = ({
   )
 }
 
-export const ThinkingMessage = ({ elapsedSeconds = 0 }: { elapsedSeconds?: number }) => {
+export const ThinkingMessage = ({ elapsedSeconds = 0, country = "qatar" }: { elapsedSeconds?: number, country?: string }) => {
+  const { t } = useLanguage();
   return (
     <motion.div
       className="w-full mx-auto max-w-3xl px-4"
@@ -344,6 +345,17 @@ export const ThinkingMessage = ({ elapsedSeconds = 0 }: { elapsedSeconds?: numbe
           <SparklesIcon size={14} />
         </div>
         <div style={{ flex: 1, paddingTop: 5 }}>
+          <div style={{
+            fontSize: 14.5, color: "var(--ink-2)", marginBottom: 10,
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span>{t.chat.placeholder_ask_in.replace('{country}', country)}</span>
+            {elapsedSeconds > 0 && (
+              <span style={{ fontSize: 12, color: "var(--ink-3)", fontVariantNumeric: "tabular-nums" }}>
+                ({elapsedSeconds.toFixed(1)}s)
+              </span>
+            )}
+          </div>
           <div className="road-strip" style={{ height: 10, borderRadius: 99, width: 200, maxWidth: "60%" }} />
         </div>
       </div>
