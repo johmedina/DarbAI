@@ -1,10 +1,13 @@
 ## Below is a list of things left to implement or fix, in no particular order of importance; crossed-out entries are done
 
-- Index Saudi Arabia source docuemnt (found in the backend repo)
+- ~~Index Saudi Arabia source docuemnt (found in the backend repo)~~
 
-    - Some signs were not picked up by the automatic extraction process (all of pages 122, 125, 127-130, and distance indicator for trains on page 123)
-    - Sign image quality is very low; they may be labelled wrong and have inaccurate retireval, testing needed
-    - Stop sign on page doesn't have its full context stored
+    - ~~Store text chunks and traffic signs in database~~
+    - ~~Enable Saudi for all modes from the frontend~~
+    - Some signs were not picked up by the automatic extraction process (all of pages 122, 125, 127-130, and distance indicator for trains on page 123), not enough time to do manually
+    - ~~Sign image quality is very low; they may be labelled wrong and have inaccurate retireval, testing needed~~
+    - ~~Signs in part 4 don't have their full context stored~~
+    - ~~Remove duplicate signs~~
 
 - Add follow up questions/build gold QA dataset for Oman
 
@@ -13,6 +16,7 @@
 - Parse tables from Qatar and UAE
 
     - Qatar pages: 56, 228, 230, 233-236
+    - ~~Saudi pages: 22, 27, 34, 79, 99~~
     - UAE pages: 21-35, 58, 94, 153*, 158-160*, 162*
     - *Table is an image with no selectable text
 
@@ -22,7 +26,7 @@
 
 - Adjust system prompt sent to Fanar for sign explanation 
 
-    - Fanar hallucinates when there isn't a lot of context for a specific sign
+    - Fanar hallucinates when there isn't a lot of context for a specific sign (doesn't always happen)
     - System prompt may be too strict, but making it less strict results in hallucinations as well
     - Below is an example of when the sign has no context
 

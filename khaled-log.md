@@ -296,3 +296,19 @@ Added arabic UI by replacing all the hard-coded strings in the frontend with ref
     - It's a very old and disorganised document
     - Headings on the contents pages don't match the actual document so I had to manually change each one
     - All signs in page 125 were not picked up by the automatic extraction, no time to do it manually
+
+- Finished indexing Saudi's document
+
+- Done the following from the list of issues
+
+    - Some signs in the UAE document have their context in multiple pages, but only the context on the same page as the sign is stored
+
+        - Page 59: Conventional Cruise Control
+        - Page 61: Lane Support Systems
+        - Page 62: Forward Collision Mitigation
+
+    - Replace remaining hard-coded strings
+
+        - Country name in dropdown and Ask Salama input placeholder
+
+    - Parsed KSA tables
