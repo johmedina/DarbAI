@@ -183,7 +183,6 @@ Both headings and subheadings were labelled as level 1 (headings) by docling but
 
 gpt-4.1-mini struggled with this, so we made the decision to switch to gpt-5.4-mini from then on for all LLM/VLM related tasks.
 
-
 ## Traffic Sign Images
 
 Most traffic sign images were extracted from the source documents without issue. After extraction, many non-sign images had to be manually deleted to not pollute the database. After that, each page and the signs that are on them were sent to an LLM to list their exact name from the page, describe them visually, and write any accompanying context text for the sign.
@@ -299,7 +298,7 @@ Added arabic UI by replacing all the hard-coded strings in the frontend with ref
 
 - Finished indexing Saudi's document
 
-- Done the following from the list of issues
+- Finished the following from the list of issues
 
     - Some signs in the UAE document have their context in multiple pages, but only the context on the same page as the sign is stored
 
@@ -312,3 +311,9 @@ Added arabic UI by replacing all the hard-coded strings in the frontend with ref
         - Country name in dropdown and Ask Salama input placeholder
 
     - Parsed KSA tables
+
+- Created script to generate one chunk per row from a markdown table and used it to parse KSA tables
+
+- Completed many entries from the issues log file
+
+- Updated timesheet and overleaf document

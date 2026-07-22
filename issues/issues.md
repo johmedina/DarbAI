@@ -1,4 +1,4 @@
-## Below is a list of things left to implement or fix, in no particular order of importance; crossed-out entries are done
+## Below is a list of things left to implement or fix, in no particular order of importance; crossed-out entries are completed
 
 - ~~Index Saudi Arabia source docuemnt (found in the backend repo)~~
 
@@ -9,16 +9,20 @@
     - ~~Signs in part 4 don't have their full context stored~~
     - ~~Remove duplicate signs~~
 
+- Test all modes with Oman and Saudi Arabia
+
+- Test Ask Salama with table retrieval
+
 - Add follow up questions/build gold QA dataset for Oman
 
-- Translate follow up questions when the UI language is arabic
+- Translate follow up questions when the UI language is Arabic
 
-- Parse tables from Qatar and UAE
+- ~~Parse tables from Qatar and UAE~~
 
-    - Qatar pages: 56, 228, 230, 233-236
+    - ~~Qatar pages: 56, 228-230, 233-236~~
     - ~~Saudi pages: 22, 27, 34, 79, 99~~
-    - UAE pages: 21-35, 58, 94, 153*, 158-160*, 162*
-    - *Table is an image with no selectable text
+    - ~~UAE pages: 21-35, 58, 94, 153*, 158-160*, 162*~~
+    - ~~*Table is an image with no selectable text~~
 
 - ~~Replace remaining hard-coded strings~~
 
@@ -53,6 +57,7 @@
     - Both questions were the first prompt in different chats
 
     ![](images/dui-fine-fail.png)
+
     ![](images/dui-fine-success.png)
 
 - Johanne suggested that we add other non-sign images to the database to help with Fanar's illustration such as lane markings, right of way diagrams, etc.
@@ -63,4 +68,16 @@
     - ~~Page 61: Lane Support Systems~~
     - ~~Page 62: Forward Collision Mitigation~~
 
-- Translate the rest of the UI texts and verify all translations
+- ~~Translate the rest of the UI texts and verify all translations~~
+
+    - ~~Country always shows as Qatar in both Arabic and English in the sources page~~
+
+- Sometimes similar questions don't return similar answers or retrieval, possibly a problem with the embedding model?
+
+    - The first example didn't have the correct source in the list of retrieved sources, while the second one had the correct source as #1 in the list
+
+        ![](images/similar-questions-fail.png)
+
+        ![](images/similar-questions-success.png)
+
+- Accidentally deleted the paragraph under "Other Distractions" on page 69 of the UAE handbook from the database (not very important, but worth logging)

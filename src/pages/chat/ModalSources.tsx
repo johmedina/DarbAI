@@ -18,9 +18,10 @@ interface Props {
   sources: RagSource[]
   show: boolean
   handleClose: () => void
+  country: string
 }
 
-const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose }) => {
+const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose, country }) => {
   const { token } = useAuth()
   const { t } = useLanguage()
   const [pages, setPages] = useState<SourcePage[]>([])
@@ -28,6 +29,14 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
   const [error, setError] = useState<string | null>(null)
   const [pageIdx, setPageIdx] = useState(0)
 
+  type Country = "qatar" | "uae" | "oman" | "ksa";
+
+  const countryMap: Record<Country, string> = {
+    qatar: t.countries.from_qatar,
+    uae: t.countries.from_uae,
+    oman: t.countries.from_oman,
+    ksa: t.countries.from_ksa,
+  };
 
   useEffect(() => {
     if (!show || !token) return
@@ -123,7 +132,15 @@ const ModalSources: FC<Props> = ({ chatId, messageId, sources, show, handleClose
                   fontSize: 12.5, color: "var(--ink-2)",
                   marginTop: 2, marginBottom: 0,
                 }}>
-                  {t.modal.pages_from_guide}
+                  {t.modal.pages_from_guide.replace(
+                    "{country}",
+                    {
+                      qatar: t.countries.from_qatar,
+                      uae: t.countries.from_uae,
+                      oman: t.countries.from_oman,
+                      ksa: t.countries.from_ksa,
+                    }[country] ?? country
+                  )}
                 </p>
               </div>
             </div>

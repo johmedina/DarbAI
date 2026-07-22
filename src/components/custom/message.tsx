@@ -19,6 +19,7 @@ import { useAuth } from "@/context/AuthContext"
 import { useLanguage } from "@/context/LanguageContext";
 
 interface PreviewMessageProps {
+  country: string
   message: ChatMessageModel
   onRegenerate?: () => void
 
@@ -38,6 +39,7 @@ interface PreviewMessageProps {
 }
 
 export const PreviewMessage = ({
+  country,
   message,
   onRegenerate,
   isRegenerating = false,
@@ -316,6 +318,7 @@ export const PreviewMessage = ({
       )}
       {showSourcesModal && message.message_id && (
         <ModalSources
+          country={country}
           chatId={message.chat_id}
           messageId={message.message_id}
           sources={(uqMessage as any).rag_sources ?? []}

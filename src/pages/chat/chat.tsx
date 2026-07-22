@@ -1534,6 +1534,7 @@ export function Chat() {
               onFeedback={handleFeedback}
               onFollowUp={(q) => handleSubmit(q)}
               isLatestMessage={i === messages.length - 1}
+              country={activeCountry?.code ?? "aaaa"}
             />
           ))}
           {showThinking && <ThinkingMessage elapsedSeconds={elapsedSeconds} country={activeCountry?.name ?? undefined} />}

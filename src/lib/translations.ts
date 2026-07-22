@@ -6,7 +6,11 @@ export const translations = {
             qatar: "Qatar",
             uae: "United Arab Emirates",
             oman: "Oman",
-            ksa: "Saudi Arabia"
+            ksa: "Saudi Arabia",
+            from_qatar: "Qatar",
+            from_uae: "United Arab Emirates",
+            from_oman: "Oman",
+            from_ksa: "Saudi Arabia"
         },
         common: {
             toggle_theme: "Toggle theme",
@@ -129,7 +133,7 @@ export const translations = {
         modal: {
             select_country_option: "Select country",
             source_pages: "Source Pages",
-            pages_from_guide: "Pages from the Qatar driving guide used to answer this question",
+            pages_from_guide: "Pages from the {country} driving guide used to answer this question",
             extracting_pages: "Extracting pages from the driving guide…",
             no_source_pages: "No source pages found for this response.",
             could_not_load_source_pages: "Could not load source pages:",
@@ -192,7 +196,11 @@ export const translations = {
             qatar: "قطر",
             uae: "الإمارات العربية المتحدة",
             oman: "سلطنة عُمان",
-            ksa: "المملكة العربية السعودية"
+            ksa: "المملكة العربية السعودية",
+            from_qatar: "القطري",
+            from_uae: "الإماراتي",
+            from_oman: "العُماني",
+            from_ksa: "السعودي"
         },
         common: {
             toggle_theme: "تبديل المظهر",
@@ -222,17 +230,17 @@ export const translations = {
             welcome_text_2_top: "المصادر",
             welcome_text_2_bottom: "المرورية الرسمية",
             disclaimer:
-                "قد يخطئ سلامة — تحقق من درجة الثقة وتأكد من المعلومات المهمة مع الإدارة العامة للمرور.",
+                "قد يخطئ سلامة — تحقق من درجة الثقة وتأكد من المعلومات المهمة لدى الإدارة العامة للمرور.",
         },
         sidebar: {
             today: "اليوم",
             yesterday: "أمس",
-            last_week: "الأسبوع الماضي",
-            older: "قبل ذلك",
+            last_week: "الأيام السبعة الماضية",
+            older: "الأقدم",
             new_chat: "دردشة جديدة",
-            rename: "renamearabic",
-            delete: "deletearabin",
-            modes: "modesarabic"
+            rename: "إعادة تسمية",
+            delete: "حذف",
+            modes: "الأوضاع"
         },
         auth: {
             welcome_back: "مرحبًا بعودتك",
@@ -257,7 +265,7 @@ export const translations = {
             salama_description:
                 "يجيب سلامة عن أسئلتك حول القيادة، والرخص، والسلامة المرورية، ويخبرك أيضًا بمدى الثقة في كل إجابة.",
             already_have_account: "لديك حساب بالفعل؟",
-            password_placeholder: "٨ أحرف على الأقل"
+            password_placeholder: "8 أحرف على الأقل"
         },
         chat: {
             placeholder_ask_in: "اسأل عن القيادة في {country}…",
@@ -341,7 +349,7 @@ export const translations = {
             select_country_option: "اختر الدولة",
             source_pages: "صفحات المصدر",
             pages_from_guide:
-                "الصفحات من دليل القيادة القطري المستخدمة للإجابة عن هذا السؤال",
+                "الصفحات من دليل القيادة {country} المستخدمة للإجابة عن هذا السؤال",
             extracting_pages: "جارٍ استخراج الصفحات من دليل القيادة…",
             no_source_pages: "لم يتم العثور على صفحات مصدر لهذه الإجابة.",
             could_not_load_source_pages: "تعذر تحميل صفحات المصدر:",
